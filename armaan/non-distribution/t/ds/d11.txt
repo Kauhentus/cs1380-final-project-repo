@@ -1,0 +1,9 @@
+http://absolutedomain.com/page1.html
+http://distributed.com/relative-to-root/page2.html
+http://distributed.com/relative-up-one-level/page3.html
+http://distributed.com/folder/relative-current-directory/page4.html
+http://distributed.com/folder/relative-page5.html
+http://distributed.com/folder/
+http://distributed.com/folder/#fragment-only
+http://distributed.com/folder/?query=string
+javascript:void(0);

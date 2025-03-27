@@ -1,0 +1,9 @@
+WELCOME TO CS1380 SIMPLE LINKS
+
+Check out my Some stuff [level_1a/index.html].
+
+Check out my Some more stuff [level_1b/index.html].
+
+Check out a few Some more more stuff [level_1c/index.html].
+
+© 2023 CS1380. All rights reserved.
