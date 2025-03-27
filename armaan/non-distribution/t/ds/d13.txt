@@ -1,0 +1,27 @@
+MAIN HEADING
+
+This is a paragraph with strong text, emphasized text, and a link.
+
+This paragraph contains non-breaking spaces and special characters & entities
+like © and €.
+
+Nested paragraph within a div.
+
+Deeply nested paragraph.
+
+ * First list item
+ * Second list item with nested list:
+   * Nested list item 1
+   * Nested list item 2
+
+An image description [image.jpg]
+
+This text should not appear as it's in a hidden element.
+
+This text should not appear if JavaScript is enabled.
+
+Unclosed div and p tags
+
+Another paragraph without closing tags
+
+Nested without closing tags

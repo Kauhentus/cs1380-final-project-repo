@@ -1,0 +1,100 @@
+{
+  "name": "cs1380-stencil",
+  "version": "0.1.23",
+  "description": "A library for building distributed systems.",
+  "main": "distribution.js",
+  "useLibrary": false,
+  "directories": {
+    "test": "test"
+  },
+  "devDependencies": {
+    "eslint": "^8.55.0",
+    "eslint-config-google": "^0.14.0",
+    "javascript-obfuscator": "^4.1.0",
+    "jest": "^27.4.7"
+  },
+  "scripts": {
+    "pretest": "./scripts/pretest.sh",
+    "test": "./scripts/test.sh",
+    "build": "./scripts/publish.sh",
+    "lint": "eslint --ignore-path .gitignore --config .eslintrc . --fix"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@brown-ds/distribution": "^0.1.7",
+    "yargs": "^17.7.2"
+  },
+  "report": {
+    "hours": 45,
+    "loc": 500,
+    "dev": {
+      "cpu-no": 11,
+      "mem-gb": 7,
+      "ssd-gb": 42
+    },
+    "throughput": {
+      "dev": [
+        {
+          "M2": 846.74
+        }
+      ],
+      "aws": [
+        {
+          "M2": 656.17
+        }
+      ]
+    },
+    "latency": {
+      "dev": [
+        {
+          "M1": [
+            {
+              "low": {
+                "serialization": 0.0005,
+                "deserialization": 0.0007
+              },
+              "med": {
+                "serialization": 0.0051,
+                "deserialization": 0.0062
+              },
+              "high": {
+                "serialization": 0.4823,
+                "deserialization": 0.5942
+              }
+            }
+          ],
+          "M2": {
+            "req": 1.18
+          }
+        }
+      ],
+      "aws": [
+        {
+          "M1": [
+            {
+              "low": {
+                "serialization": 0.0024,
+                "deserialization": 0.0018
+              },
+              "med": {
+                "serialization": 0.0155,
+                "deserialization": 0.0166
+              },
+              "high": {
+                "serialization": 0.9915,
+                "deserialization": 1.0344
+              }
+            }
+          ]
+        },
+        {
+          "M2": {
+            "req": 1.52
+          }
+        }
+      ]
+    },
+    "dloc": 30000
+  }
+}
