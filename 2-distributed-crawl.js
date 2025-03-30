@@ -145,7 +145,9 @@ distribution.node.start(async (server) => {
                                     .filter(link => !link.includes('#'))
                                     .filter(link => !link.includes(':'))
                             
-                                const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && (pair[1].includes('plantae') || pair[1].includes('fungi')));
+                                // const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && (pair[1].includes('plantae') || pair[1].includes('fungi')));
+                                const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && pair[1].includes('animalia'));
+
                                 const is_species_page = hierarchy && binomial_name && is_plant;
                                 if(is_species_page) {
                                     const page_text = root.text;
@@ -200,7 +202,9 @@ distribution.node.start(async (server) => {
                         const remote = { gid: 'local', service: 'mem', method: 'put'};
                         distribution.testX.comm.send([{ nodes, num_nodes }, 'global_info'], remote, (e, v) => {
 
-                            const link = '/wiki/Plant';
+                            // const link = '/wiki/Plant';
+                            const link = '/wiki/Animal';
+
                             const remote = { node: get_nx(link), gid: 'local', service: 'crawler', method: 'add_link_to_crawl'};
                             distribution.local.comm.send([link], remote, (e, v) => {
 
@@ -240,7 +244,7 @@ distribution.node.start(async (server) => {
         const sleep_iter = () => new Promise((resolve, reject) => {
             setTimeout(() => {
                 resolve();
-            }, 800 + 400 * Math.random());
+            }, 100 + 100 * Math.random());
         });
 
         const stat_iter = () => new Promise((resolve, reject) => {
@@ -267,7 +271,7 @@ distribution.node.start(async (server) => {
             });
         });
 
-        for(let i = 0; i < 1000; i++){
+        for(let i = 0; i < 100000; i++){
             console.log("ITER =", i);
             await sleep_iter();
             await crawl_iter();
