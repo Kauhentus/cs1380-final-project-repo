@@ -7,7 +7,7 @@ import * as read_last_lines from 'read-last-lines';
 // const url = '/wiki/Tulip';
 // const url = '/wiki/Tulipa_orphanidea'
 const url = '/wiki/Pinus_nigra';
-let num_plants = fs.readdirSync('./store/plants').length;
+let num_plants = fs.readdirSync('./store_old/plants').length;
 
 type SpeciesData = {
     hierarchy: [string, string][];
@@ -15,9 +15,9 @@ type SpeciesData = {
     url: string;
 }
 
-const scraped_urls = fs.readFileSync('./store/urls_scraped.txt').toString().split('\n');
+const scraped_urls = fs.readFileSync('./store_old/urls_scraped.txt').toString().split('\n');
 const scraped_map = new Map<string, boolean>();
-const to_scrap_urls = [...new Set(fs.readFileSync('./store/urls_to_scrape.txt').toString().split('\n'))];
+const to_scrap_urls = [...new Set(fs.readFileSync('./store_old/urls_to_scrape.txt').toString().split('\n'))];
 const to_scrape_map = new Map<string, boolean>();
 
 scraped_urls.forEach(url => scraped_map.set(url, true));
@@ -65,7 +65,7 @@ const scrape_url = async (url: string): Promise<string[]> => {
                     url: url
                 }
                 fs.writeFileSync(
-                    `./store/plants/${binomial_name.replace(/\s+/g, '_').replace(/[^a-z._]/g, '')}.json`, 
+                    `./store_old/plants/${binomial_name.replace(/\s+/g, '_').replace(/[^a-z._]/g, '')}.json`, 
                     JSON.stringify(species_data, null, 2)
                 );
                 num_plants++;
@@ -107,8 +107,8 @@ const run = async () => {
 run();
 
 setInterval(() => {
-    fs.writeFileSync('./store/urls_to_scrape.txt', Array.from(to_scrape_map.keys()).join('\n'));
+    fs.writeFileSync('./store_old/urls_to_scrape.txt', Array.from(to_scrape_map.keys()).join('\n'));
 }, 5000);
 setInterval(() => {
-    fs.writeFileSync('./store/urls_scraped.txt', Array.from(scraped_map.keys()).join('\n'));
+    fs.writeFileSync('./store_old/urls_scraped.txt', Array.from(scraped_map.keys()).join('\n'));
 }, 5000);

@@ -1,5 +1,9 @@
 {
+  "main": "distribution.js",
+  "useLibrary": false,
   "dependencies": {
+    "@brown-ds/distribution": "^0.1.17",
+    "lz-string": "^1.5.0",
     "node-html-parser": "^7.0.1",
     "read-last-lines": "^1.8.0"
   },
