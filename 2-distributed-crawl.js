@@ -87,9 +87,18 @@ distribution.node.start(async (server) => {
             get_stats: (cb) => {
                 distribution.local.mem.get('links_to_crawl_map', (e1, links_to_crawl_map) => {
                     distribution.local.mem.get('crawled_links_map', (e2, crawled_links_map) => {
+
+                        const fs = require('fs');
+                        const num_target_found = fs.readdirSync('./store')
+                            .filter(folder => !folder.includes('.'))
+                            .map(folder => `./store/${folder}`)
+                            .map(folder => fs.readdirSync(folder).length)
+                            .reduce((a, b) => a + b, 0) - num_nodes * 2;
+
                         const stats = {
                             links_to_crawl: links_to_crawl_map.size,
-                            crawled_links: crawled_links_map.size
+                            crawled_links: crawled_links_map.size,
+                            num_target_found: num_target_found
                         }
                         cb(null, stats);
                     });
@@ -153,15 +162,15 @@ distribution.node.start(async (server) => {
                                     .filter(link => !link.includes('.png'))
                                     .filter(link => !link.includes('#'))
                                     .filter(link => !link.includes(':'))
-                            
-                                // const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && (pair[1].includes('plantae') || pair[1].includes('fungi')));
-                                // const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && pair[1].includes('animalia'));
-                                // const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && pair[1].includes('plantae'));
-                                // const is_fungi = hierarchy?.find(pair => pair[0] === 'kingdom' && pair[1].includes('fungi'));
+                        
+                                const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && pair[1].includes('plantae'));
+                                const is_fungi = hierarchy?.find(pair => pair[0] === 'kingdom' && pair[1].includes('fungi'));
                                 const is_sealife = hierarchy?.find(pair => pair[0] === 'phylum' && pair[1].includes('cnidaria'));
-                                // const is_butterfly = hierarchy?.find(pair => pair[0] === 'order' && pair[1].includes('lepidoptera'));
-                                // const is_target_class = is_plant || is_fungi || is_sealife || is_butterfly;
-                                const is_target_class = is_sealife;
+                                const is_butterfly = hierarchy?.find(pair => pair[0] === 'order' && pair[1].includes('lepidoptera'));
+                                const is_target_class = is_plant || is_fungi || is_sealife || is_butterfly;
+                                
+                                // const is_sealife = hierarchy?.find(pair => pair[0] === 'phylum' && pair[1].includes('cnidaria'));
+                                // const is_target_class = is_sealife;
 
                                 const is_species_page = hierarchy && binomial_name && is_target_class;
                                 if(is_species_page) {
@@ -271,19 +280,14 @@ distribution.node.start(async (server) => {
                 console.log(v);
                 let sum_links_to_crawl = 0;
                 let sum_crawled_links = 0;
+                let sum_num_target_found = 0;
                 Object.keys(v).forEach(key => {
                     sum_links_to_crawl += v[key].links_to_crawl;
                     sum_crawled_links += v[key].crawled_links;
+                    sum_num_target_found += v[key].num_target_found;
                 });
                 console.log(`sum_links_to_crawl = ${sum_links_to_crawl}, sum_crawled_links = ${sum_crawled_links}`);
-                
-                // const fs = require('fs');
-                // const num_plants = fs.readdirSync('./store')
-                //     .filter(folder => !folder.includes('.'))
-                //     .map(folder => `./store/${folder}`)
-                //     .map(folder => fs.readdirSync(folder).length)
-                //     .reduce((a, b) => a + b, 0) - num_nodes * 2;
-                // console.log("TOTAL PAGES SO FAR =", num_plants);
+                console.log("TOTAL PAGES SO FAR =", sum_num_target_found);
 
                 resolve();
             });
