@@ -1,6 +1,11 @@
 node_modules
 store_old
+store_animal
+store_plantae_fungi
 store 
 
 crawler-files/logs
 crawler-files
+
+*.zip
+.DS_Store

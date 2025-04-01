@@ -1,0 +1,24 @@
+ec2-user@ec2-54-146-240-134.compute-1.amazonaws.com
+ec2-user@ec2-35-175-141-16.compute-1.amazonaws.com
+ec2-user@ec2-34-201-116-60.compute-1.amazonaws.com
+ec2-user@ec2-44-203-173-187.compute-1.amazonaws.com
+ec2-user@ec2-52-91-248-98.compute-1.amazonaws.com
+ec2-user@ec2-52-90-42-105.compute-1.amazonaws.com
+ec2-user@ec2-54-208-109-135.compute-1.amazonaws.com
+ec2-user@ec2-184-72-110-157.compute-1.amazonaws.com
+
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "sudo yum install git -y"
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash"
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "nvm install 22"
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "git clone https://github.com/Kauhentus/cs1380-final-project-repo.git"
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && npm i"
+
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "sudo yum install -y iptables-services"
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "sudo iptables -I INPUT -p tcp --dport 8000 -j ACCEPT"
+
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "npm install -g pm2"
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && pm2 start distribution.js --name distribution -- --ip '0.0.0.0' --port 8000"
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "pm2 delete distribution"
+
+
+# ssh -i cs1380-final-project-ssh.pem ec2-user@ec2-52-91-248-98.compute-1.amazonaws.com

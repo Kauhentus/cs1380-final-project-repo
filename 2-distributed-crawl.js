@@ -2,15 +2,24 @@ const distribution = require('./config.js');
 const id = distribution.util.id;
 
 const num_nodes = 8;
-
-const nodes = [];
+const nodes = [
+    { ip: '54.146.240.134', port: 8000},
+    { ip: '35.175.141.16', port: 8000},
+    { ip: '34.201.116.60', port: 8000},
+    { ip: '44.203.173.187', port: 8000},
+    { ip: '52.91.248.98', port: 8000},
+    { ip: '52.90.42.105', port: 8000},
+    { ip: '54.208.109.135', port: 8000},
+    { ip: '184.72.110.157', port: 8000}
+];
+// const nodes = [];
 const nids = [];
-const testXGroup = {};
-const testXConfig = { gid: 'testX' };
+const taxonomy_group_group = {};
+const taxonomy_group_config = { gid: 'taxonomy_group' };
 for(let i = 0; i < num_nodes; i++) {
-    nodes.push({ ip: '127.0.0.1', port: 7110 + i });
+    // nodes.push({ ip: '127.0.0.1', port: 7110 + i });
     nids.push(id.getNID(nodes[i]));
-    testXGroup[id.getSID(nodes[i])] = nodes[i];
+    taxonomy_group_group[id.getSID(nodes[i])] = nodes[i];
 }
 
 distribution.node.start(async (server) => {
@@ -146,9 +155,15 @@ distribution.node.start(async (server) => {
                                     .filter(link => !link.includes(':'))
                             
                                 // const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && (pair[1].includes('plantae') || pair[1].includes('fungi')));
-                                const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && pair[1].includes('animalia'));
+                                // const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && pair[1].includes('animalia'));
+                                // const is_plant = hierarchy?.find(pair => pair[0] === 'kingdom' && pair[1].includes('plantae'));
+                                // const is_fungi = hierarchy?.find(pair => pair[0] === 'kingdom' && pair[1].includes('fungi'));
+                                const is_sealife = hierarchy?.find(pair => pair[0] === 'phylum' && pair[1].includes('cnidaria'));
+                                // const is_butterfly = hierarchy?.find(pair => pair[0] === 'order' && pair[1].includes('lepidoptera'));
+                                // const is_target_class = is_plant || is_fungi || is_sealife || is_butterfly;
+                                const is_target_class = is_sealife;
 
-                                const is_species_page = hierarchy && binomial_name && is_plant;
+                                const is_species_page = hierarchy && binomial_name && is_target_class;
                                 if(is_species_page) {
                                     const page_text = root.text;
                                     const all_words = (page_text.match(/\b\w+\b/g) || [])
@@ -161,10 +176,12 @@ distribution.node.start(async (server) => {
                                         url: url,
                                         article_words: all_words,
                                     }
-                                    const path_safe_url = url.replace(/\//g, '-');
+                                    const path_safe_url = url.replace(/\//g, '.');
                                     const LZ = require('lz-string');
                                     const compressed_data = LZ.compressToBase64(JSON.stringify(species_data));
-                                    distribution.local.store.put(compressed_data, path_safe_url, (e, v) => {});
+                                    distribution.local.store.put(compressed_data, path_safe_url, (e, v) => {
+
+                                    });
                                 }
                                 crawled_links_map.set(url, true);
 
@@ -172,7 +189,7 @@ distribution.node.start(async (server) => {
                                     const { nodes, num_nodes } = v;
 
                                     const get_nx = (link) => nodes[parseInt(distribution.util.id.getID(link).slice(0, 8), 16) % num_nodes];
-                                    const new_links = [...new Set(is_plant ? links_on_page : [])];
+                                    const new_links = [...new Set(is_target_class ? links_on_page : [])];
                                     new_links.map(link => {
                                         const remote = { node: get_nx(link), gid: 'local', service: 'crawler', method: 'add_link_to_crawl'};
                                         distribution.local.comm.send([link], remote, (e, v) => {});
@@ -180,7 +197,7 @@ distribution.node.start(async (server) => {
             
                                     setTimeout(() => {
                                         const fs = require('fs');
-                                        fs.appendFileSync(global.log_file_path, `Crawled ${url} with ${crawled_links_map.size} crawled with ${links_to_crawl_map.size} left\n`);
+                                        // fs.appendFileSync(global.log_file_path, `Crawled ${url} with ${crawled_links_map.size} crawled with ${links_to_crawl_map.size} left\n`);
                                         cb();
                                     }, 1000);
                                 });
@@ -191,19 +208,20 @@ distribution.node.start(async (server) => {
             }
         }
 
-        distribution.local.groups.put(testXConfig, testXGroup, (e, v) => {
-            distribution.testX.groups.put(testXConfig, testXGroup, (e, v) => {
+        distribution.local.groups.put(taxonomy_group_config, taxonomy_group_group, (e, v) => {
+            distribution.taxonomy_group.groups.put(taxonomy_group_config, taxonomy_group_group, (e, v) => {
 
-                distribution.testX.routes.put(crawlerService, 'crawler', (e, v) => {
+                distribution.taxonomy_group.routes.put(crawlerService, 'crawler', (e, v) => {
 
                     const remote = {gid: 'local', service: 'crawler', method: 'initialize'};
-                    distribution.testX.comm.send([], remote, (e, v) => {
+                    distribution.taxonomy_group.comm.send([], remote, (e, v) => {
 
                         const remote = { gid: 'local', service: 'mem', method: 'put'};
-                        distribution.testX.comm.send([{ nodes, num_nodes }, 'global_info'], remote, (e, v) => {
+                        distribution.taxonomy_group.comm.send([{ nodes, num_nodes }, 'global_info'], remote, (e, v) => {
 
                             // const link = '/wiki/Plant';
-                            const link = '/wiki/Animal';
+                            // const link = '/wiki/Animal';
+                            const link = '/wiki/Cnidaria';
 
                             const remote = { node: get_nx(link), gid: 'local', service: 'crawler', method: 'add_link_to_crawl'};
                             distribution.local.comm.send([link], remote, (e, v) => {
@@ -229,14 +247,14 @@ distribution.node.start(async (server) => {
 
         const crawl_iter = () => new Promise((resolve, reject) => {
             const remote = { gid: 'local', service: 'crawler', method: 'crawl_one'};
-            distribution.testX.comm.send([], remote, (e, v) => {
+            distribution.taxonomy_group.comm.send([], remote, (e, v) => {
                 resolve();
             });
         })
 
         const save_iter = () => new Promise((resolve, reject) => {
             const remote = { gid: 'local', service: 'crawler', method: 'save_maps_to_disk'};
-            distribution.testX.comm.send([], remote, (e, v) => {
+            distribution.taxonomy_group.comm.send([], remote, (e, v) => {
                 resolve();
             });
         });
@@ -249,7 +267,7 @@ distribution.node.start(async (server) => {
 
         const stat_iter = () => new Promise((resolve, reject) => {
             const remote = { gid: 'local', service: 'crawler', method: 'get_stats'};
-            distribution.testX.comm.send([], remote, (e, v) => {
+            distribution.taxonomy_group.comm.send([], remote, (e, v) => {
                 console.log(v);
                 let sum_links_to_crawl = 0;
                 let sum_crawled_links = 0;
@@ -259,13 +277,13 @@ distribution.node.start(async (server) => {
                 });
                 console.log(`sum_links_to_crawl = ${sum_links_to_crawl}, sum_crawled_links = ${sum_crawled_links}`);
                 
-                const fs = require('fs');
-                const num_plants = fs.readdirSync('./store')
-                    .filter(folder => !folder.includes('.'))
-                    .map(folder => `./store/${folder}`)
-                    .map(folder => fs.readdirSync(folder).length)
-                    .reduce((a, b) => a + b, 0) - num_nodes * 2;
-                console.log("TOTAL PAGES SO FAR =", num_plants);
+                // const fs = require('fs');
+                // const num_plants = fs.readdirSync('./store')
+                //     .filter(folder => !folder.includes('.'))
+                //     .map(folder => `./store/${folder}`)
+                //     .map(folder => fs.readdirSync(folder).length)
+                //     .reduce((a, b) => a + b, 0) - num_nodes * 2;
+                // console.log("TOTAL PAGES SO FAR =", num_plants);
 
                 resolve();
             });
@@ -285,9 +303,9 @@ distribution.node.start(async (server) => {
         cb();
     };
 
-    for(let i = 0; i < num_nodes; i++) {
-        await spawn_nx(nodes[i]);
-    }
+    // for(let i = 0; i < num_nodes; i++) {
+    //     await spawn_nx(nodes[i]);
+    // }
 
     setup_cluster(() => {
         run_task(() => {
