@@ -1,7 +1,6 @@
 /** @typedef {import("../types").Callback} Callback */
 // const { log } = require("console");
-const distribution = require("../../config");
-const util = distribution.util;
+
 
 /**
  * Map functions used for mapreduce
@@ -43,15 +42,17 @@ function mr(config) {
    * @return {void}
    */
   function exec(configuration, cb) {
+    const keys = configuration.keys
+    const mapper = configuration.map;
+    const reducer = configuration.reduce;
+    const distribution = require("../../config");
     const mrId = require("crypto").randomUUID().substring(0, 8); // Get first 8 chars as ID
     const mrServiceName = `mr@${mrId}`; // mr@<uuid>
-    const user_reduce = util.serialize(configuration.reduce)
-    const user_map = util.serialize(configuration.map)
 
     let results = [];
 
     let state_dict = {
-      phase: "SETUP",
+      phase: "MAP",
       phase_count: 0,
     };
     /**
@@ -67,7 +68,7 @@ function mr(config) {
      *  
      * @param {*} cb 
      */
-    const notify = (config, cb) => {
+    const notify = (config, callback) => {
       const phase_map = {
         MAP: "SHUFFLE",
         SHUFFLE: "REDUCE",
@@ -75,32 +76,32 @@ function mr(config) {
       };
       
       if (config.status === "ERROR") {
-        cb(Error(config.error), null);
+        callback(Error(config.error), null);
         return;
       } 
       
       // Special case for SETUP - initiates the map phase on all nodes
       if (config.phase === "SETUP") {
+        // console.log(`Starting setup phase for all nodes`);
         const remote = {
           service: config.jid,
           method: 'map',
         }
         const setupConfig = {
-          mapper: user_map,
           gid: config.gid,
           jid: config.jid
         }
         const message = [setupConfig];
         state_dict.phase = "MAP";
         state_dict.phase_count = 0;
-        
-        distribution[context.gid].comm.send(message, remote, cb);
+        // console.log(`State dictionary updated to ${state_dict}`);
+        distribution[context.gid].comm.send(message, remote, callback);
         return;
       }
       // Otherwise we get the local group node count by making a call to the group
       distribution.local.groups.get(config.gid, (err, group) => {
         if (err) {
-          cb(err, null);
+          callback(err, null);
           return;
         }
         let groupNodeCount = Object.keys(group).length;
@@ -109,7 +110,7 @@ function mr(config) {
         state_dict.phase_count = state_dict.phase_count + 1;
 
         if (config.phase !== state_dict.phase) {
-          cb(
+          callback(
             Error(
               `Error: Phase mismatch. Expected ${state_dict.phase}, got ${config.phase}`
             ),
@@ -129,14 +130,20 @@ function mr(config) {
         if (state_dict.phase_count === groupNodeCount) {
           // If we've finished reducing, return the results
           if (state_dict.phase === "REDUCE") {
-            cb(null, results);
-            return;
+            distribution[context.gid].comm.send([config.jid], {service: 'routes', method: 'rem'}, (e, v) => {
+              // console.log(`COMPLETING ORCHESTRATION (deregistered custom route ${config.jid})`)
+              cb(null, results);
+              return;
+            });
           }
           
           // Otherwise, move to the next phase
           let new_phase = phase_map[state_dict.phase];
+          // console.log(`Moving to phase: ${new_phase}`);
+          // Notify all nodes of the new phase
           state_dict.phase = new_phase;
           state_dict.phase_count = 0;
+          // console.log(`Notifying all nodes of new phase: ${new_phase} for job: ${config.jid}`);
 
           let endPoint = config.jid;
           let method = state_dict.phase.toLowerCase();
@@ -151,13 +158,10 @@ function mr(config) {
             jid: config.jid
           }
           
-          // Include the reducer function if we're starting the reduce phase
-          if (state_dict.phase === "REDUCE"){
-            phaseConfig.reducer = user_reduce;
-          }
-          
           const message = [phaseConfig];
-          distribution[context.gid].comm.send(message, remote, cb);
+          distribution[context.gid].comm.send(message, remote, (err, val) => {
+
+          });
         }
       });
     };
@@ -170,96 +174,78 @@ function mr(config) {
      *    jid: this is the jobID (mr@<uuid>)
      * @param {*} cb 
      */
-    const map = (config, cb) => {
+    const map = (config, callback) => {
       // Config object should contain the serialized user map function
-      const ser_mapper = config.mapper;
       const gid = config.gid;
       const job_id = config.jid;
-      const mapper = distribution.util.deserialize(ser_mapper);
 
-      // Get the service for this job
-      distribution.local.routes.get({gid: gid, service: job_id}, (err, service) => {
+      // First we get the serivce object for this worker node
+      distribution.local.routes.get(job_id, (err, service) => {
         if (err) {
-          cb(err, null);
+          // console.log("ERROR ERROR ERROR ", err);
+          callback(err, null);
           return;
         }
+
+        // We placed the service method mapper from the user provided function on each worker
+        const mapper = service.mapper;
+
+        let mapResults = [];
         
-        // get the keys for the group
-        distribution.local.store.getGroupKeys(gid, (err, keys) => {
+        distribution.local.store.get({gid: gid, key: null}, (err, localKeys) => {
           if (err) {
-            cb(err, null);
+            
+            callback(err, null);
             return;
           }
 
-          if (!keys || keys.length === 0) {
-            // No keys to process on this node, but still notify completion
-            const mapResultName = "map@" + job_id;
-            distribution.local.store.put([], {key: mapResultName, gid: gid}, (err) => {
-              if (err) {
-                cb(err, null);
-                return;
-              }
-              // Notify that the map phase is completed
-              service.notify({phase: "MAP", status: "COMPLETED", gid: gid, jid: job_id}, cb);
-            });
-            return;
+          let pendingOperations = localKeys.length;
+
+          if (pendingOperations === 0) {
+            // console.log(`${global.nodeConfig.port}: FINISHED MAPPING`)
+            service.notify({phase: "MAP", status: "COMPLETED", gid: gid, jid: job_id}, callback);
           }
-
-          // Array to hold the results of the map operation
-          let mapResults = [];
-          // Counter for pending operations
-          let pendingOperations = keys.length;
-          // Flag to track if an error has occurred
-          let hasError = false;
-
-          // Process each key
-          keys.forEach((key) => {
-            // Get the value for this key
-            distribution.local.store.get({ key: key, gid: gid }, (err, value) => {
-              // If we already encountered an error, don't continue processing
-              if (hasError) return;
-
+          
+          localKeys.forEach((key) => {
+            distribution.local.store.get({key: key, gid: gid}, (err, val) => {
               if (err) {
-                hasError = true;
-                cb(err, null);
+                callback(err, null);
                 return;
               }
+              // console.log(global.nodeConfig, err, val);
 
-              try {
-                // Apply the mapper function
-                let res = mapper(key, value);
-                
-                // Make sure result is an array
+              try{
+                let res = mapper(key, val) // apply the map
+
+                // console.log(res)
+
                 if (!Array.isArray(res)) {
                   res = [res];
                 }
-                
-                // Add results to our collection
+
                 mapResults = mapResults.concat(res);
-                
-                // Decrement the counter of pending operations
+
                 pendingOperations--;
-                
-                // If all operations are done, store results and notify completion
+
                 if (pendingOperations === 0) {
+                  // console.log("MADE IT")
                   const mapResultName = "map@" + job_id;
-                  distribution.local.store.put(mapResults, {key: mapResultName, gid: gid}, (err) => {
+                  distribution.local.store.put(mapResults, {key: mapResultName, gid: gid}, (err, val) => {
                     if (err) {
-                      cb(err, null);
+                      callback(err, null);
                       return;
                     }
-                    service.notify({phase: "MAP", status: "COMPLETED", gid: gid, jid: job_id}, cb);
-                  });
+                    // console.log(`${global.nodeConfig.port}: FINISHED MAPPING`)
+                    service.notify({phase: "MAP", status: "COMPLETED", gid: gid, jid: job_id}, callback);
+                  })
                 }
               } catch (mapError) {
-                if (!hasError) {
-                  hasError = true;
-                  cb(mapError, null);
-                }
+                callback(mapError, null);
+                return;
               }
-            });
-          });
-        });
+            })
+          })
+        })
       });
     }; // This is the end of the map method
 
@@ -271,49 +257,68 @@ function mr(config) {
      *    jid: this is the jobID (mr@<uuid>)
      * @param {*} cb 
      */
-    const shuffle = (config, cb) => {
+    const shuffle = (config, callback) => {
       const gid = config.gid;
       const jid = config.jid;
 
+      // console.log(`${global.nodeConfig.port}: Starting shuffle for ${jid}`)
       // Get the service for this job
-      distribution.local.routes.get({gid: gid, service: jid}, (err, service) => {
+      distribution.local.routes.get(jid, (err, service) => {
         if (err) {
-          cb(err, null);
+          // console.log(`${global.nodeConfig.port}: ERROR WITH GETTING THE EPHEMERAL SERVICE ${err}`)
+          callback(err, null);
           return;
         }
         
         // Get the map results from the local store
-        distribution.local.store.get({key: "map@" + jid, gid: gid}, (err, mapResults) => {
+        const mapResultName = "map@" + jid;
+        distribution.local.store.get({key: mapResultName, gid: gid}, (err, mapResults) => {
           if (err) {
-            service.notify({phase: "SHUFFLE", status: "ERROR", error: err.message, gid: gid, jid: jid}, cb);
+            service.notify({phase: "SHUFFLE", status: "COMPLETED", gid: gid, jid: jid}, callback);
             return;
           }
 
           if (!mapResults || mapResults.length === 0) {
             // No results to shuffle
-            service.notify({phase: "SHUFFLE", status: "COMPLETED", gid: gid, jid: jid}, cb);
+            // console.log(`${global.nodeConfig.port}: NO RESULTS FOUND FROM THE MAP PHASE MOVING TO REDUCE!`)
+            service.notify({phase: "SHUFFLE", status: "COMPLETED", gid: gid, jid: jid}, callback);
             return;
           }
 
           // Now we have the map results, we need to distribute them to the correct nodes
+          
           const entrySize = mapResults.length;
           let entriesProcessed = 0;
+
+          // console.log(global.nodeConfig.port, ": FOUND MAP RESULTS",mapResults)
           
           // Process each mapped result - each is expected to be an object with a single key-value pair
           mapResults.forEach((entry) => {
+            // console.log(global.nodeConfig.port, entry)
             const key = Object.keys(entry)[0];
-            const value = entry[key];
             
             // Append the value to the appropriate reduce bucket
-            distribution[gid].store.append(value, "reduce@" + jid, (err, res) => {
+            const append_config = {
+              key: key,
+              entry: entry,
+              jid: jid
+            }
+
+            // console.log(global.nodeConfig.port, ": SENDING JID, KEY, ENTRY TO APPEND" ,jid, key, entry)
+
+            // We distribute the results across the nodes!
+            distribution[gid].store.append(append_config, (err, res) => {
               if (err) {
-                cb(err, null);
+                callback(err, null);
                 return;
               }
               
               entriesProcessed++;
+
+              // 
               if (entriesProcessed === entrySize) {
-                service.notify({phase: "SHUFFLE", status: "COMPLETED", gid: gid, jid: jid}, cb);
+                // console.log("Shuffling for node: ", global.nodeConfig, ' finished!');
+                service.notify({phase: "SHUFFLE", status: "COMPLETED", gid: gid, jid: jid}, callback);
               }
             });
           });
@@ -329,33 +334,39 @@ function mr(config) {
      *    jid: this is the jobID (mr@<uuid>)
      * @param {*} cb 
      */
-    const reduce = (config, cb) => {
+    const reduce = (config, callback) => {
       // Config object should contain the serialized user reduce function
-      const ser_reducer = config.reducer;
       const gid = config.gid;
       const job_id = config.jid;
-      const reducer = distribution.util.deserialize(ser_reducer);
 
       // Get the service for this job
-      distribution.local.routes.get({gid: gid, service: job_id}, (err, service) => {
+      distribution.local.routes.get(job_id, (err, service) => {
         if (err) {
-          cb(err, null);
+          callback(err, null);
           return;
         }
+
+        // console.log("Reducing for node: ", global.nodeConfig.port, ' started!');
+
+        const reducer = service.reducer;
         
         const shuffleResultName = "reduce@" + job_id;
         // Get all keys from the store to find our reduce buckets
         distribution.local.store.get({gid: gid, key: shuffleResultName}, (err, shuffleResults) => {
           if (err) {
-            cb(err, null);
+            // console.log(global.nodeConfig.port, "COMPLETED")
+            service.notify({phase: "REDUCE", status: "COMPLETED", results: [], gid: gid, jid: job_id}, callback);
+            callback(err, null);
             return;
           }
 
           let reduceKeys = Object.keys(shuffleResults)
+
+          // console.log(global.nodeConfig.port, " : found", reduceKeys.length ,"reduced results :", shuffleResults);
           
           if (reduceKeys.length === 0) {
             // No keys to process on this node, but still notify completion
-            service.notify({phase: "REDUCE", status: "COMPLETED", results: [], gid: gid, jid: job_id}, cb);
+            service.notify({phase: "REDUCE", status: "COMPLETED", results: [], gid: gid, jid: job_id}, callback);
             return;
           }
 
@@ -366,10 +377,17 @@ function mr(config) {
           // Flag to track if an error has occurred
           let hasError = false;
 
+          
           // Process each reduce key
           reduceKeys.forEach((key) => {
             // Extract the actual key from the full key (remove the prefix)
-            const values = shuffleResults[key]
+            let values = shuffleResults[key]
+
+            // console.log(global.nodeConfig.port, " : processing key ", key, " with values: ", values);
+
+            if (!Array.isArray(values)) {
+              values = [values]
+            }
             
             // If we already encountered an error, don't continue processing
             if (hasError) return;
@@ -377,6 +395,7 @@ function mr(config) {
             try {
               // Apply the reducer function
               let res = reducer(key, values);
+              // console.log(global.nodeConfig.port, " : reducer produced ", res)
               
               // Add result to our collection
               reduceResults.push(res);
@@ -386,18 +405,20 @@ function mr(config) {
               
               // If all operations are done, notify completion with results
               if (pendingOperations === 0) {
+                // console.log("Reducing for node: ", global.nodeConfig.port, ' finished!');
+                // console.log( global.nodeConfig.port, " : Final reduce results: ", reduceResults);
                 service.notify({
                   phase: "REDUCE", 
                   status: "COMPLETED", 
                   results: reduceResults,
                   gid: gid, 
                   jid: job_id
-                }, cb);
+                }, callback);
               }
             } catch (reduceError) {
               if (!hasError) {
                 hasError = true;
-                cb(reduceError, null);
+                callback(reduceError, null);
               }
             }
           });
@@ -406,49 +427,46 @@ function mr(config) {
     };
 
     // Create an RPC version of the notify method so it runs on the coordinator
-    let notifyRPC = util.wire.createRPC(util.wire.toAsync(notify));
-    let asyncMap = util.wire.toAsync(map);
+    let notifyRPC = distribution.util.wire.createRPC(distribution.util.wire.toAsync(notify));
+    // let asyncMap = util.wire.toAsync(map);
 
 
     // Create the service object with all methods
     let mrServiceObject = {
       notify: notifyRPC,
-      map: asyncMap,
+      map: map,
+      mapper: mapper,
+      reducer: reducer,
       shuffle: shuffle,
       reduce: reduce
     };
     
     // Register the service on all nodes in the group
+    // console.log("EXEC STARTS", global.nodeConfig, 'with keys', keys);
     distribution[context.gid].routes.put(mrServiceObject, mrServiceName, (err, res) => {
       if (err) {
         cb(err, null);
         return;
       }
 
-      console.log(res);
+      // console.log(`Successfuly placed service object for group ${context.gid}`);
       
-      // THIS IS CRUCIAL: Start the MapReduce process by calling notify with SETUP phase
-      const remote = {
-        service: mrServiceName,
-        method: 'notify'
-      };
-      
+      // distribution.local.routes.get({gid: context.gid, service: mrServiceName}, (err, service) => {
+      //   console.log(`local service object: ${service}`)
+      //   service.notify({phase: "SETUP", status: "START", gid: gid, jid: mrServiceName}, (err, val) => {
+      //     cb(null, val);
+      //   });
+      // })
       const setupConfig = {
-        phase: "SETUP",
-        gid: context.gid,
-        jid: mrServiceName
-      };
-      
-      distribution[context.gid].comm.send([setupConfig], remote, cb);
+          gid: context.gid,
+          jid: mrServiceName,
+          keys: keys
+        }
+      const message = [setupConfig];
+      distribution[context.gid].comm.send(message, {gid: 'local', service: mrServiceName, method: 'map'}, (e, v) => {
+
+      })
     });
-
-
-    // TODO: What if notify wasn't a service method (we would still need it to be an RPC though)
-    // TODO: idea (we create notify as an RPC everytime exec is called, and add it to the MR service so it can be called by all worker nodes)
-
-
-    // TODO: ALT2: We call notify for each stage. Notify only returns once all nodes have provided a response (HOW?)
-    // TODO: What if each time notify waits to respond until all nodes have responded
 
 
   }
