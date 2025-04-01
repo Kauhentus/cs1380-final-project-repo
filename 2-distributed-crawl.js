@@ -88,18 +88,18 @@ distribution.node.start(async (server) => {
                 distribution.local.mem.get('links_to_crawl_map', (e1, links_to_crawl_map) => {
                     distribution.local.mem.get('crawled_links_map', (e2, crawled_links_map) => {
 
-                        const fs = require('fs');
-                        const store_exists = fs.existsSync('/home/ec2-user/cs1380-final-project-repo/store');
-                        const num_target_found = store_exists ? fs.readdirSync('/home/ec2-user/cs1380-final-project-repo/store')
-                            .filter(folder => !folder.includes('.'))
-                            .map(folder => `/home/ec2-user/cs1380-final-project-repo/store/${folder}`)
-                            .map(folder => fs.readdirSync(folder).length)
-                            .reduce((a, b) => a + b, 0) - num_nodes * 2 : 0;
+                        // const fs = require('fs');
+                        // const store_exists = fs.existsSync('/home/ec2-user/cs1380-final-project-repo/store');
+                        // const num_target_found = store_exists ? fs.readdirSync('/home/ec2-user/cs1380-final-project-repo/store')
+                        //     .filter(folder => !folder.includes('.'))
+                        //     .map(folder => `/home/ec2-user/cs1380-final-project-repo/store/${folder}`)
+                        //     .map(folder => fs.readdirSync(folder).length)
+                        //     .reduce((a, b) => a + b, 0) - num_nodes * 2 : 0;
 
                         const stats = {
                             links_to_crawl: links_to_crawl_map.size,
                             crawled_links: crawled_links_map.size,
-                            num_target_found: num_target_found
+                            num_target_found: 0
                         }
 
                         cb(null, stats);
