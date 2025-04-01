@@ -17,6 +17,9 @@ ec2-user@ec2-184-72-110-157.compute-1.amazonaws.com
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "sudo iptables -I INPUT -p tcp --dport 8000 -j ACCEPT"
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "npm install -g pm2"
 
+# git pull changes
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && git pull"
+
 # start/stop distribution server
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && pm2 start distribution.js --name distribution -- --ip '0.0.0.0' --port 8000"
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "pm2 delete distribution"
