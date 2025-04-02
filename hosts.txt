@@ -37,7 +37,7 @@ ec2-user@54.145.177.180
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && rm store/ -r"
 
 # manual ssh into one node
-# ssh -i cs1380-final-project-ssh.pem ec2-user@ec2-52-91-248-98.compute-1.amazonaws.com
+# ssh -i cs1380-final-project-ssh.pem ec2-user@3.225.196.65
 
 ##########################
 # OCHESTRATOR SSH COMMANDS

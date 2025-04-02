@@ -315,8 +315,9 @@ distribution.node.start(async (server) => {
             console.log("ITER =", i);
             await sleep_iter();
             await crawl_iter();
-            await stat_iter();
             if(i % 100 === 0) {
+                await stat_iter();
+            } if(i % 5 === 0) {
                 await save_iter();
             }
         }
