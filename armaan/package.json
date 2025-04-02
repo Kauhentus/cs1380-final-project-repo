@@ -23,6 +23,7 @@
   "license": "ISC",
   "dependencies": {
     "@brown-ds/distribution": "^0.1.7",
+    "lz-string": "^1.5.0",
     "yargs": "^17.7.2"
   },
   "report": {
