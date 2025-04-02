@@ -1,18 +1,20 @@
 const distribution = require('./config.js');
 const id = distribution.util.id;
 
-const num_nodes = 8;
+// const num_nodes = 8;
+const num_nodes = 4;
 const nodes = [
     { ip: '3.225.196.65', port: 8000},   
     { ip: '34.231.129.22', port: 8000},
     { ip: '35.168.108.255', port: 8000},
     { ip: '54.145.177.180', port: 8000},
 
-    { ip: '3.87.247.123', port: 8000},
-    { ip: '54.89.224.30', port: 8000},
-    { ip: '3.84.14.167', port: 8000},
-    { ip: '54.157.193.198', port: 8000}
+    // { ip: '3.87.247.123', port: 8000},
+    // { ip: '54.89.224.30', port: 8000},
+    // { ip: '3.84.14.167', port: 8000},
+    // { ip: '54.157.193.198', port: 8000}
 ];
+
 // const nodes = [];
 const nids = [];
 const taxonomy_group_group = {};
