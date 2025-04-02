@@ -313,7 +313,7 @@ distribution.node.start(async (server) => {
             await sleep_iter();
             await crawl_iter();
             await stat_iter();
-            if(i % 5 === 0) {
+            if(i % 100 === 0) {
                 await save_iter();
             }
         }
