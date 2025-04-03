@@ -204,9 +204,8 @@ distribution.node.start(async (server) => {
                                         article_words: all_words,
                                     }
                                     const path_safe_url = url.replace(/\//g, '.');
-                                    const LZ = require('lz-string');
-                                    const compressed_data = LZ.compressToBase64(JSON.stringify(species_data));
-                                    distribution.local.store.put(compressed_data, path_safe_url, (e, v) => {
+                                    const uncompressed_data = JSON.stringify(species_data);
+                                    distribution.local.store.put(uncompressed_data, path_safe_url, (e, v) => {
 
                                     });
                                 }
