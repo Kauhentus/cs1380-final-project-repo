@@ -312,7 +312,7 @@ distribution.node.start(async (server) => {
                 running_links_to_crawl = sum_links_to_crawl;
                 running_num_target_found = sum_num_target_found;
 
-                if(prev_running_crawled_links === 0) prev_running_crawled_links = running_crawled_links;
+                if(prev_running_crawled_links === 0) prev_running_crawled_links = sum_crawled_links;
                 if(prev_running_links_to_crawl === 0) prev_running_links_to_crawl = sum_links_to_crawl;
                 if(prev_running_num_target_found === 0) prev_running_num_target_found = sum_num_target_found;
 

@@ -3,10 +3,15 @@ ec2-user@34.231.129.22
 ec2-user@35.168.108.255
 ec2-user@54.145.177.180
 
-# ec2-user@ec2-3-87-247-123.compute-1.amazonaws.com
-# ec2-user@ec2-54-89-224-30.compute-1.amazonaws.com
-# ec2-user@ec2-3-84-14-167.compute-1.amazonaws.com
-# ec2-user@ec2-54-157-193-198.compute-1.amazonaws.com
+# manual ssh into one node
+# ssh -i cs1380-final-project-ssh.pem ec2-user@3.225.196.65
+# ssh -i cs1380-final-project-ssh.pem ec2-user@34.231.129.22
+# ssh -i cs1380-final-project-ssh.pem ec2-user@35.168.108.255
+# ssh -i cs1380-final-project-ssh.pem ec2-user@54.145.177.180
+
+################
+################
+
 
 # install pssh for group ssh commands
 # brew install pssh
@@ -29,15 +34,13 @@ ec2-user@54.145.177.180
 
 # start/restart/stop distribution server
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && pm2 start distribution.js --name distribution -- --ip '0.0.0.0' --port 8000"
-# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && pm2 restart distribution"
+
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "pm2 restart distribution"
 
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "pm2 delete distribution"
 
 # remove store
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && rm store/ -r"
-
-# manual ssh into one node
-# ssh -i cs1380-final-project-ssh.pem ec2-user@3.225.196.65
 
 ##########################
 # OCHESTRATOR SSH COMMANDS
@@ -64,3 +67,9 @@ ec2-user@54.145.177.180
 # pm2 delete orchestrator
 
 # grep 'Accepted' /var/log/auth.log | wc -l
+
+# copy store backup
+# scp -P 22 -i cs1380-final-project-ssh.pem ec2-user@3.225.196.65:cs1380-final-project-repo/store.zip store
+# scp -P 22 -i cs1380-final-project-ssh.pem ec2-user@34.231.129.22:cs1380-final-project-repo/store.zip store
+# scp -P 22 -i cs1380-final-project-ssh.pem ec2-user@35.168.108.255:cs1380-final-project-repo/store.zip store
+# scp -P 22 -i cs1380-final-project-ssh.pem ec2-user@54.145.177.180:cs1380-final-project-repo/store.zip store
