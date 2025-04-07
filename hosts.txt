@@ -1,11 +1,17 @@
-ec2-user@ec2-54-146-240-134.compute-1.amazonaws.com
-ec2-user@ec2-35-175-141-16.compute-1.amazonaws.com
-ec2-user@ec2-34-201-116-60.compute-1.amazonaws.com
-ec2-user@ec2-44-203-173-187.compute-1.amazonaws.com
-ec2-user@ec2-52-91-248-98.compute-1.amazonaws.com
-ec2-user@ec2-52-90-42-105.compute-1.amazonaws.com
-ec2-user@ec2-54-208-109-135.compute-1.amazonaws.com
-ec2-user@ec2-184-72-110-157.compute-1.amazonaws.com
+ec2-user@3.225.196.65
+ec2-user@34.231.129.22
+ec2-user@35.168.108.255
+ec2-user@54.145.177.180
+
+# manual ssh into one node
+# ssh -i cs1380-final-project-ssh.pem ec2-user@3.225.196.65
+# ssh -i cs1380-final-project-ssh.pem ec2-user@34.231.129.22
+# ssh -i cs1380-final-project-ssh.pem ec2-user@35.168.108.255
+# ssh -i cs1380-final-project-ssh.pem ec2-user@54.145.177.180
+
+################
+################
+
 
 # install pssh for group ssh commands
 # brew install pssh
@@ -28,22 +34,20 @@ ec2-user@ec2-184-72-110-157.compute-1.amazonaws.com
 
 # start/restart/stop distribution server
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && pm2 start distribution.js --name distribution -- --ip '0.0.0.0' --port 8000"
-# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && pm2 restart distribution"
+
+# pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "pm2 restart distribution"
 
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "pm2 delete distribution"
 
 # remove store
 # pssh -h hosts.txt -x "-i cs1380-final-project-ssh.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && rm store/ -r"
 
-# manual ssh into one node
-# ssh -i cs1380-final-project-ssh.pem ec2-user@ec2-52-91-248-98.compute-1.amazonaws.com
-
 ##########################
 # OCHESTRATOR SSH COMMANDS
 ##########################
 
 # manual ssh into orchestrator node
-# ssh -i cs1380-final-project-ssh.pem ec2-user@ec2-3-83-12-13.compute-1.amazonaws.com
+# ssh -i cs1380-final-project-ssh.pem ec2-user@100.28.4.129
 
 # orchestrator node setup
 # sudo yum install git -y
@@ -61,3 +65,11 @@ ec2-user@ec2-184-72-110-157.compute-1.amazonaws.com
 # pm2 start 2-distributed-crawl.js --name orchestrator  --output ./pm2.log --error ./pm2.log
 # pm2 restart orchestrator
 # pm2 delete orchestrator
+
+# grep 'Accepted' /var/log/auth.log | wc -l
+
+# copy store backup
+# scp -P 22 -i cs1380-final-project-ssh.pem ec2-user@3.225.196.65:cs1380-final-project-repo/store.zip store
+# scp -P 22 -i cs1380-final-project-ssh.pem ec2-user@34.231.129.22:cs1380-final-project-repo/store.zip store
+# scp -P 22 -i cs1380-final-project-ssh.pem ec2-user@35.168.108.255:cs1380-final-project-repo/store.zip store
+# scp -P 22 -i cs1380-final-project-ssh.pem ec2-user@54.145.177.180:cs1380-final-project-repo/store.zip store

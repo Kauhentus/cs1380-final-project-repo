@@ -1,2 +1,0 @@
-word1 word2 | url4 2
-word3 | url3 2

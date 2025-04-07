@@ -1,17 +1,20 @@
 const distribution = require('./config.js');
 const id = distribution.util.id;
 
-const num_nodes = 8;
+// const num_nodes = 8;
+const num_nodes = 4;
 const nodes = [
-    { ip: '54.146.240.134', port: 8000},
-    { ip: '35.175.141.16', port: 8000},
-    { ip: '34.201.116.60', port: 8000},
-    { ip: '44.203.173.187', port: 8000},
-    { ip: '52.91.248.98', port: 8000},
-    { ip: '52.90.42.105', port: 8000},
-    { ip: '54.208.109.135', port: 8000},
-    { ip: '184.72.110.157', port: 8000}
+    { ip: '3.225.196.65', port: 8000},   
+    { ip: '34.231.129.22', port: 8000},
+    { ip: '35.168.108.255', port: 8000},
+    { ip: '54.145.177.180', port: 8000},
+
+    // { ip: '3.87.247.123', port: 8000},
+    // { ip: '54.89.224.30', port: 8000},
+    // { ip: '3.84.14.167', port: 8000},
+    // { ip: '54.157.193.198', port: 8000}
 ];
+
 // const nodes = [];
 const nids = [];
 const taxonomy_group_group = {};
@@ -201,9 +204,8 @@ distribution.node.start(async (server) => {
                                         article_words: all_words,
                                     }
                                     const path_safe_url = url.replace(/\//g, '.');
-                                    const LZ = require('lz-string');
-                                    const compressed_data = LZ.compressToBase64(JSON.stringify(species_data));
-                                    distribution.local.store.put(compressed_data, path_safe_url, (e, v) => {
+                                    const uncompressed_data = JSON.stringify(species_data);
+                                    distribution.local.store.put(uncompressed_data, path_safe_url, (e, v) => {
 
                                     });
                                 }
@@ -283,16 +285,20 @@ distribution.node.start(async (server) => {
             });
         });
 
+        const get_time_to_sleep = (n) => n - 50 + 100 * Math.random();
         const sleep_iter = () => new Promise((resolve, reject) => {
             setTimeout(() => {
                 resolve();
-            }, 100 + 100 * Math.random());
+            }, get_time_to_sleep(100));
         });
+
+        let running_links_to_crawl = 0;
+        let running_crawled_links = 0;
+        let running_num_target_found = 0;
 
         const stat_iter = () => new Promise((resolve, reject) => {
             const remote = { gid: 'local', service: 'crawler', method: 'get_stats'};
             distribution.taxonomy_group.comm.send([], remote, (e, v) => {
-                console.log(v);
                 let sum_links_to_crawl = 0;
                 let sum_crawled_links = 0;
                 let sum_num_target_found = 0;
@@ -301,6 +307,15 @@ distribution.node.start(async (server) => {
                     sum_crawled_links += v[key].crawled_links;
                     sum_num_target_found += v[key].num_target_found;
                 });
+
+                running_crawled_links = sum_crawled_links;
+                running_links_to_crawl = sum_links_to_crawl;
+                running_num_target_found = sum_num_target_found;
+
+                if(prev_running_crawled_links === 0) prev_running_crawled_links = sum_crawled_links;
+                if(prev_running_links_to_crawl === 0) prev_running_links_to_crawl = sum_links_to_crawl;
+                if(prev_running_num_target_found === 0) prev_running_num_target_found = sum_num_target_found;
+
                 console.log(`sum_links_to_crawl = ${sum_links_to_crawl}, sum_crawled_links = ${sum_crawled_links}`);
                 console.log("TOTAL PAGES SO FAR =", sum_num_target_found);
 
@@ -308,12 +323,44 @@ distribution.node.start(async (server) => {
             });
         });
 
+        let prev_running_links_to_crawl = 0;
+        let prev_running_crawled_links = 0;
+        let prev_running_num_target_found = 0;
+        
+        const perf = require('perf_hooks').performance;
+        let start_time = perf.now();
+        setInterval(() => {
+            let current_time = perf.now();
+            let elapsed_time = (current_time - start_time) / 1000;
+            start_time = current_time;
+
+            let rate_links_to_crawl = (running_links_to_crawl - prev_running_links_to_crawl) / elapsed_time;
+            let rate_crawled_links = (running_crawled_links - prev_running_crawled_links) / elapsed_time;
+            let rate_num_target_found = (running_num_target_found - prev_running_num_target_found) / elapsed_time;
+
+            let rate_links_to_crawl_per_minute = rate_links_to_crawl * 60;
+            let rate_crawled_links_per_minute = rate_crawled_links * 60;
+            let rate_num_target_found_per_minute = rate_num_target_found * 60;
+            console.log(`\n\n--- PERFORMANCE STATS ---`);
+            console.log(`Elapsed Time: ${elapsed_time.toFixed(2)} seconds`);
+            console.log(`Rate of links to crawl: ${rate_links_to_crawl.toFixed(2)} links/sec (${rate_links_to_crawl_per_minute.toFixed(2)} links/min)`);
+            console.log(`Rate of crawled links: ${rate_crawled_links.toFixed(2)} links/sec (${rate_crawled_links_per_minute.toFixed(2)} links/min)`);
+            console.log(`Rate of target pages found: ${rate_num_target_found.toFixed(2)} pages/sec (${rate_num_target_found_per_minute.toFixed(2)} pages/min)`);
+            console.log('--- END PERFORMANCE STATS ---\n\n');
+
+            prev_running_links_to_crawl = running_links_to_crawl;
+            prev_running_crawled_links = running_crawled_links;
+            prev_running_num_target_found = running_num_target_found;
+            console.log();
+        }, 1000 * 60 * 5);
+
         for(let i = 0; i < 100000; i++){
             console.log("ITER =", i);
-            await sleep_iter();
+            // await sleep_iter();
             await crawl_iter();
-            await stat_iter();
-            if(i % 5 === 0) {
+            if(i % 20 === 0) {
+                await stat_iter();
+            } if(i % 5 === 0) {
                 await save_iter();
             }
         }
