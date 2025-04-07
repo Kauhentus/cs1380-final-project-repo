@@ -1,7 +1,18 @@
 /** @typedef {import("../types").Callback} Callback */
 
-let services = {};
-let toLocal = {};
+// This table will map from a service name to its configuration
+// This will now be a mapping from gid -> service name -> configuration
+// This is a global variable that will be used to store the routes
+// The type nesting is string -> string -> object
+global.routesTable = {};
+
+const cb = (e, v) => {
+  if (e) {
+    console.error(e);
+  } else {
+    console.log(v);
+  }
+};
 
 /**
  * @param {string} configuration
@@ -9,63 +20,37 @@ let toLocal = {};
  * @return {void}
  */
 function get(configuration, callback) {
-    // console.log('GET !', configuration, '!', callback)
-    callback = callback || function() { };
-
-    let service_name;
-    let gid;
-    if(typeof configuration === "string"){
-        service_name = configuration;
-        gid = 'local';
-    } else if(typeof configuration === "object"){
-        if("gid" in configuration) gid = configuration.gid;
-        else gid = 'local';
-
-        if("service" in configuration) service_name = configuration.service;
-        else callback("Invalid service config missing service information", null);
+  callback = callback || cb;
+  let gid = 'local';
+  let service = 'status';
+  if (configuration === undefined || configuration === null) {
+    callback(null, global.routesTable[gid][configuration]);
+  }
+  if (typeof configuration === "object") {
+    if (configuration.gid) {
+      gid = configuration.gid;
+    }
+    if (configuration.service) {
+      service = configuration.service;
+    }
+  } else if (typeof configuration === "string") {
+    service = configuration;
+  }
+  if (
+    !global.routesTable || 
+    !global.routesTable[gid] || 
+    !global.routesTable[gid][service]
+  ) {
+    const rpc = global.toLocal[service];
+    if (rpc) {
+      callback(null, {call: rpc});
     } else {
-        callback("Invalid service config missing gid/service information", null);
-        return
+      callback(new Error(`Service ${service} in the ${gid} group does not exist`), null);
+      return;
     }
-
-    // console.log('GET', gid, services[service_name]['get'] ? services[service_name]['get'].toString() : '')
-
-    // handle local routes/get
-    if(gid === 'local'){
-        if(services.hasOwnProperty(service_name)) {
-            callback(null, services[service_name]);
-        } else {
-            // RPC fix
-            if (!(service_name in services)) {
-                const rpc = global.toLocal[service_name];
-                if (rpc) {
-                    callback(null, { call: rpc });
-                } else {
-                    callback(new Error(`Service ${service_name} not found!`));
-                }
-            }
-        }
-    }
-
-    // handle <gid> routes/get
-    else {
-        // let service;
-        // if(gid === 'all') service = distribution.local[service_name]
-        // else if(distribution[gid]) service = distribution[gid][service_name];
-        // else service = distribution.local[service_name];
-        // console.log("    ROUTES got service", service, "with gid", gid)
-
-        const service = distribution[gid] ?
-            distribution[gid][service_name] :
-            distribution.local[service_name];   // TODO: do this properly LOL
-        // // const service = distribution.local[service_name];
-
-        if(service) {
-            callback(null, service);
-        } else {
-            callback(new Error(`Service ${service_name} not found in group ${gid}!`));
-        }
-    }
+  } else {
+    callback(null, global.routesTable[gid][service]);
+  }
 }
 
 /**
@@ -74,18 +59,32 @@ function get(configuration, callback) {
  * @param {Callback} callback
  * @return {void}
  */
-function put(service, configuration, callback) {
-    // console.log('PUT !', configuration, '!', service, callback)
-    callback = callback || function() { };
+function put(service, configuration, callback = cb) {
+  let gid = "local";
 
-    try {
-        services[configuration] = service;
-    } catch (error) { 
-        callback(error);
-        return;
-    }
+  if (!service) {
+      return callback(new Error("Service cannot be null or undefined"));
+  } else if (typeof service !== "object") {
+    return callback(new Error("Service must be an object"));
+  }
 
-    callback(null);
+  if (!configuration) {
+    return callback(new Error("Configuration cannot be null or undefined"));
+  }
+
+  if (typeof configuration === "object") {
+    gid = configuration.gid || gid;
+    configuration = configuration.service || "";
+  } else if (typeof configuration !== "string") {
+    return callback(new Error("Configuration must be a string or an object with a service key"));
+  }
+
+  global.routesTable[gid] = global.routesTable[gid] || {};
+  global.routesTable[gid][configuration] = service;
+
+  // console.log(`Successfully added service ${configuration} to the ${gid} group`)
+  // console.log(global.routesTable)
+  callback(null, `Successfully added service ${configuration} to the ${gid} group`);
 }
 
 /**
@@ -93,20 +92,32 @@ function put(service, configuration, callback) {
  * @param {Callback} callback
  */
 function rem(configuration, callback) {
-    // console.log('REM !', configuration, '!', callback)
-    callback = callback || function() { };
-    // console.log("CALLBACK??", callback)
-
-    try {
-        if(typeof configuration === "string") delete services[configuration];
-        else if(Array.isArray(configuration)) delete services[configuration[1]];
-        else callback("Invalid service config missing service information", null);
-    } catch (error) {
-        callback(error);
-        return;
+  callback = callback || cb;
+  let gid = "local";
+  if (!configuration) {
+    callback(null, "");
+  }
+  if (typeof configuration === "object") {
+    if (configuration.gid) {
+      gid = configuration.gid;
     }
+    if (configuration.service) {
+      configuration = configuration.service;
+    }
+  } else if (typeof configuration !== "string") {
+    callback(new Error("Configuration must be a string or an object with a service key"), null);
+  }
+  if (
+    !global.routesTable || 
+    !global.routesTable[gid] || 
+    !global.routesTable[gid][configuration]
+  ) {
+    callback(new Error(`Service ${configuration} for the ${gid} group does not exist`), null);
+    return;
+  } else {
+    delete global.routesTable[gid][configuration];
+    callback(null, `Successfully removed service ${configuration}`);
+  }
+}
 
-    callback(null);
-};
-
-module.exports = {get, put, rem, services, toLocal};
+module.exports = { get, put, rem };

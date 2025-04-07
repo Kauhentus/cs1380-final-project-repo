@@ -35,7 +35,6 @@ function getSID(node) {
   return getNID(node).substring(0, 5);
 }
 
-
 function getMID(message) {
   const msg = {};
   msg.date = new Date().getTime();
@@ -55,21 +54,34 @@ function naiveHash(kid, nids) {
 }
 
 function consistentHash(kid, nids) {
-  const kid_num = idToNum(kid);
-  const nids_with_num = nids.map(nid => ({ nid, num: idToNum(nid) }));
-  nids_with_num.sort((a, b) => a.num - b.num);
-  const candidate = nids_with_num.find(item => item.num > kid_num);
-  return candidate ? candidate.nid : nids_with_num[0].nid;
+  let kidID = idToNum(kid);
+  nids.sort((a, b) => idToNum(a) - idToNum(b));
+  for (const nid of nids) {
+    if (idToNum(nid) >= kidID) {
+      return nid;
+    }
+  }
+  return nids[0];
 }
 
-
 function rendezvousHash(kid, nids) {
-  const scores = nids.map((nid) => {
-    const score = idToNum(getID(kid + nid));
-    return {nid, score};
-  });
-  scores.sort((a, b) => b.score - a.score);
-  return scores[0].nid;
+  // We want to combine the KID with each NID
+  // and then we want to convert them to a 
+  // numerical representation and sort them 
+  // to choose the max
+
+  let max = -Infinity;
+  let maxNID = '';
+  for (const nid of nids) {
+    const combined = kid + nid;
+    const combinedHash = getID(combined);
+    const combinedNum = idToNum(combinedHash);
+    if (combinedNum > max) {
+      max = combinedNum;
+      maxNID = nid;
+    }
+  }
+  return maxNID;
 }
 
 module.exports = {

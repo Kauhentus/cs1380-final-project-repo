@@ -1,111 +1,190 @@
-const { id } = require('../util/util');
-const fs = require('fs');
-
+const id = distribution.util.id;
 const groups = {};
-const groups_map = {};
 
-groups.groups_map = groups_map;
-
-groups.get = function (name, callback) {
-  if (!callback) throw Error('called groups.get without callback');
-
-  if (name === "all") {
-    const retrieved_groups = Object.keys(groups_map).map(key => groups_map[key]);
-    const all_groups = Object.assign({}, ...retrieved_groups);
-    return callback(null, all_groups);
-  }
-  else if (name in groups_map) {
-    return callback(null, groups_map[name]);
-  }
-  else {
-    return callback(new Error(`group ${name} not found for groups/get`), null);
-  }
+global.groupsTable = {
+    'all': {},
 };
 
-groups.put = function (config, group, callback) {
-  // console.log("GROUPS PUT CALLED ON NODE", global.nodeConfig.port);
-  callback = callback || function () { };
-
-  // check config format
-  let gid;
-  if (typeof config === "string") {
-    gid = config;
-  } else if (typeof config === "object" && "gid" in config) {
-    gid = config.gid;
+const cb = (e, v) => {
+  if (e) {
+    console.error(e);
   } else {
-    return callback(new Error("Invalid group config"), null);
-  }
-
-  // put group to groups_map (overwrite OK since we can put add)
-  groups_map[gid] = group;
-
-  // add group to distribution.<gid>
-  if (!(gid in distribution)) {
-    distribution[gid] = {};
-
-    // TODO check if this is how to populate it?
-    distribution[gid].comm = require('../all/comm')(config);
-    distribution[gid].status = require('../all/status')(config);
-    distribution[gid].routes = require('../all/routes')(config);
-    distribution[gid].groups = require('../all/groups')(config);
-    distribution[gid].gossip = require('./gossip');
-    distribution[gid].mem = require('../all/mem')(config);
-    distribution[gid].store = require('../all/store')(config);
-    distribution[gid].mr = require('../all/mr')(config);
-  }
-
-  callback(null, group);
-};
-
-groups.del = function (name, callback) {
-  callback = callback || function () { };
-
-  if (name in groups_map) {
-    let group_to_delete = groups_map[name];
-    delete groups_map[name];
-
-    // delete distribution[name];
-
-    return callback(null, group_to_delete);
-  }
-  else {
-    return callback(new Error("group not found for groups/del"), null);
+    console.log(v);
   }
 };
 
-groups.add = function (name, node, callback) {
-  // console.log("ADDED NODE", node ,"TO GROUP", name, global.nodeConfig)
-
-  callback = callback || function () { };
-
-  if (!(name in groups_map)) {
-    return callback(null);
-  }
-
-  const sid = id.getSID(node);
-  groups_map[name][sid] = node;
-  callback(null, node);
+/**
+ * 
+ * @param {*} name 
+ * @param {*} callback 
+ * @returns 
+ */
+groups.get = function(name, callback) {
+    callback = callback || cb;
+    if (typeof name === 'object') {
+        if (name.gid) {
+            name = name.gid;
+        } else {
+            return callback(new Error('Invalid group name'));
+        }
+    } else if (typeof name !== 'string') {
+        return callback(new Error('Invalid group name'));
+    }
+    if (global.groupsTable[name]) {
+        return callback(null, global.groupsTable[name]);
+    } else {
+        return callback(new Error('Group not found'));
+    }
 };
 
-groups.rem = function (name, node, callback) {
-  callback = callback || function () { };
+/**
+ * 
+ * @param {*} config 
+ * @param {*} group 
+ * @param {*} callback 
+ * @returns 
+ */
+groups.put = function(config, group, callback) {
+    callback = callback || cb;
+    let gid = config;
+    let hash;
+    if (typeof config === 'object') {
+        if (config.gid) {
+            gid = config.gid;
+        if (config.hash) {
+            hash = config.hash;
+        }
+        } else {
+            return callback(new Error('Invalid group ID'));
+        }
+    } else if (typeof config !== 'string') {
+        return callback(new Error('Invalid group ID'));
+    }
+    if (typeof group !== 'object') {
+        return callback(new Error('Invalid group object'));
+    }
+    for (const sid in group) {
+        global.groupsTable['all'][sid] = group[sid];
+    }
+    global.groupsTable[gid] = group;
 
-  if (!(name in groups_map)) {
-    return callback(null);
-  }
+    // Now we can add it to the distribution object for the node
+    if (!global.distribution[gid]) {
 
-  let sid;
-  if (typeof node === "string") {
-    sid = node;
-  } else {
-    sid = id.getSID(node);
-  }
+        const allServices = require('../all/all.js');
 
-  if (!(sid in groups_map[name])) {
-    return callback(null);
-  }
-  delete groups_map[name][sid];
-  callback(null);
+        let serviceObject = {};
+        for (const service in allServices) {
+            const serviceTemplate = allServices[service];
+            if (hash && (service === 'mem' || service === 'store')) {
+                serviceObject[service] = serviceTemplate({gid: gid, hash: hash});
+            } else {
+                serviceObject[service] = serviceTemplate({gid: gid, hash: id.consistentHash});
+            }
+        }
+        global.distribution[gid] = serviceObject;
+        global.routesTable[gid] = global.routesTable[gid] || {};
+        for (const service in global.distribution[gid]) {
+            global.routesTable[gid][service] = global.distribution[gid][service];
+        }
+    }
+
+    return callback(null, group);
+};
+
+/**
+ * 
+ * @param {*} name 
+ * @param {*} callback 
+ * @returns 
+ */
+groups.del = function(name, callback) {
+    callback = callback || cb;
+    if (typeof name === 'object') {
+        if (name.gid) {
+            name = name.gid;
+        } else {
+            return callback(new Error('Invalid group name'));
+        }
+    } else if (typeof name !== 'string') {
+        return callback(new Error('Invalid group name'));
+    }
+    if (global.groupsTable[name]) {
+        const group = global.groupsTable[name];
+        delete global.groupsTable[name];
+        return callback(null, group);
+    } else {
+        return callback(new Error('Group not found'));
+    }
+};
+
+/**
+ * @param {*} name 
+ * @param {*} node 
+ * @param {*} callback 
+ * @returns 
+ */
+groups.add = function(name, node, callback) {
+    callback = callback || cb;
+    if (typeof name === 'object') {
+        if (name.gid) {
+            name = name.gid;
+        } else {
+            return callback(new Error('Invalid group name'));
+        }
+    } else if (typeof name !== 'string') {
+        return callback(new Error('Invalid group name'));
+    }
+
+    if (typeof node !== 'object') {
+        return callback(new Error('Invalid node object'));
+    }
+    if (global.groupsTable[name]) {
+        global.groupsTable[name][id.getSID(node)] = node;
+        global.groupsTable['all'][id.getSID(node)] = node;
+        return callback(null, global.groupsTable[name][id.getSID(node)]);
+    } else {
+        this.put(name, {[id.getSID(node)]: node}, (e, v) => {
+            if (e) {
+                return callback(e);
+            }
+            return callback(null, global.groupsTable[name][id.getSID(node)]);
+        });
+    }
+};
+
+/**
+ * 
+ * @param {*} name 
+ * @param {*} node 
+ * @param {*} callback 
+ * @returns 
+ */
+groups.rem = function(name, node, callback) {
+    callback = callback || cb;
+    if (typeof name === 'object') {
+        if (name.gid) {
+            name = name.gid;
+        } else {
+            return callback(new Error('Invalid group name'));
+        }
+    } else if (typeof name !== 'string') {
+        return callback(new Error('Invalid group name'));
+    }
+    let key;
+    if (typeof node === 'object') {
+        key = id.getSID(node);
+    } else if (typeof node === 'string') {
+        key = node;
+    } else {
+        return callback(new Error('Invalid node object'));
+    }
+    if (global.groupsTable[name]) {
+        delete global.groupsTable[name][key];
+        return callback(null, global.groupsTable[name]);
+    } else {
+        return callback(null, {});
+    }
 };
 
 module.exports = groups;

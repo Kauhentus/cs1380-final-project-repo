@@ -1,5 +1,7 @@
 /** @typedef {import("../types").Callback} Callback */
 
+const local = distribution.local;
+
 /**
  * NOTE: This Target is slightly different from local.all.Target
  * @typdef {Object} Target
@@ -21,35 +23,53 @@ function comm(config) {
    * @param {Callback} callback
    */
   function send(message, configuration, callback) {
-    distribution.local.groups.get(context.gid, async (e, v) => {
-      if(e) return callback(e);
+    if (message === undefined || message === null) {
+      // If no message is provided, we assume the default message is a node id
+      message = ['nid'];
+    } else if (!Array.isArray(message)) {
+      message = [message]
+    }
+    if (configuration === undefined || configuration === null || !configuration.service || !configuration.method
+    ) {
+      callback(new Error('Remote configuration is required'), null);
+      return;
+    }
+    let service = configuration.service;
+    let method = configuration.method;
 
-      const group_node_sids = Object.keys(v);
-      const results = await Promise.all(group_node_sids.map((sid) => new Promise((res, rej) => {
-        const remote = {
-          node: v[sid],
-          service: configuration.service,
-          method: configuration.method
-        }
-      
-        distribution.local.comm.send(message, remote, (e, v) => {
-          if(e) return res(new Error(e));
-          else return res(v);
-        });  
-      })));
+    let errorMap = {};
+    let responseMap = {};
+    let responseCount = 0;
 
-      const errors = {};
-      const aggregation = {};
-      for(let i = 0; i < group_node_sids.length; i++){
-        if(results[i] instanceof Error){
-          errors[group_node_sids[i]] = results[i];
-        } else {
-          aggregation[group_node_sids[i]] = results[i];
-        }
+    distribution.local.groups.get(context.gid, (err, group) => {
+      if (err) {
+        callback(err, null);
+        return;
       }
-      
-      callback(errors, aggregation);
+
+      responseCount = Object.keys(group).length;
+
+      Object.entries(group).forEach(([sid, node]) => {
+        let config = {
+          service: service,
+          method: method,
+          node: node,
+          gid: 'local'
+        }
+        local.comm.send(message, config, (error, response) => {
+          if (error) {
+            errorMap[sid] = error;
+          } else {
+            responseMap[sid] = response;
+          }
+          responseCount--;
+          if (responseCount === 0) {
+            callback(errorMap, responseMap);
+          }
+        })
+      })
     });
+
   }
 
   return {send};

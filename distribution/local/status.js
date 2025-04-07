@@ -1,64 +1,68 @@
-const id = require('../util/id');
+const log = require('../util/log');
 
-const status = {};
+const status = {
+};
 
 global.moreStatus = {
   sid: global.distribution.util.id.getSID(global.nodeConfig),
   nid: global.distribution.util.id.getNID(global.nodeConfig),
   counts: 0,
+  memory: {
+    heapTotal: process.memoryUsage().heapTotal,
+    heapUsed: process.memoryUsage().heapUsed
+  }
+};
+
+const cb = (e, v) => {
+  if (e) {
+    console.error(e);
+  } else {
+    log(v);
+  }
 };
 
 status.get = function(configuration, callback) {
-  // console.log("STATUS GET", configuration, callback.toString())
-  callback = callback || function() { };
-
-  if(Array.isArray(configuration)){
-    if(configuration.length != 1){
-      callback(new Error('status get configutation only takes 1 argument'));
-      return;
-    } else {
-      configuration = configuration[0];
-    }
-  }
-
-  if(configuration === 'nid') {
-    callback(null, id.getNID(global.nodeConfig));
+  callback = callback || cb;
+  if (!configuration) {
+    callback(new Error('Configuration is required'), {});
     return;
   }
-
-  if (configuration === 'sid') {
-    callback(null, id.getSID(global.nodeConfig));
-    return;
+  switch(configuration) {
+    case 'sid':
+      callback(null, global.moreStatus.sid);
+      break;
+    case 'nid':
+      callback(null, global.moreStatus.nid);
+      break;
+    case 'counts':
+      callback(null, global.moreStatus.counts);
+      break;
+    case 'ip':
+      callback(null, global.nodeConfig.ip);
+      break;
+    case 'port':
+      callback(null, global.nodeConfig.port);
+      break;
+    case 'heapTotal':
+      callback(null, process.memoryUsage().heapTotal);
+      break;
+    case 'heapUsed':
+      callback(null, process.memoryUsage().heapUsed);
+      break;
+    case 'memory':
+      // Return the entire memory usage object
+      callback(null, {
+        heapTotal: process.memoryUsage().heapTotal,
+        heapUsed: process.memoryUsage().heapUsed
+      });
+      break;
+    default:
+      callback(new Error(`Status property "${configuration}" not found`), null);
   }
-
-  if(configuration === 'ip') {
-    callback(null, global.nodeConfig.ip);
-    return;
-  }
-
-  if (configuration === 'port') {
-    callback(null, global.nodeConfig.port);
-    return;
-  }
-
-  if (configuration === 'counts') {
-    callback(null, global.moreStatus.counts);
-    return;
-  }
-
-  if (configuration === 'heapTotal') {
-    callback(null, process.memoryUsage().heapTotal);
-    return;
-  }
-  if (configuration === 'heapUsed') {
-    callback(null, process.memoryUsage().heapUsed);
-    return;
-  }
-
-  callback(new Error(`Status key <${configuration}> not found`));
 };
 
-status.spawn = require('@brown-ds/distribution/distribution/local/status').spawn; 
+status.spawn = require('@brown-ds/distribution/distribution/local/status').spawn;
+
 status.stop = require('@brown-ds/distribution/distribution/local/status').stop; 
 
 module.exports = status;

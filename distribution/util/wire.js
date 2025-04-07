@@ -1,7 +1,9 @@
-const { toLocal } = require('../local/routes');
 const log = require('../util/log');
 
-let createRPC = require('@brown-ds/distribution/distribution/util/wire').createRPC;
+
+// function createRPC(func) {
+//   // Write some code...
+// }
 
 /*
   The toAsync function transforms a synchronous function that returns a value into an asynchronous one,
@@ -27,8 +29,10 @@ function toAsync(func) {
   return asyncFunc;
 }
 
+let createRPC = require('@brown-ds/distribution/distribution/util/wire').createRPC;
+
+
 module.exports = {
   createRPC: createRPC,
   toAsync: toAsync,
-  toLocal: toLocal
 };

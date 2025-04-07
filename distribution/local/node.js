@@ -1,7 +1,8 @@
 const http = require('http');
 const url = require('url');
 const log = require('../util/log');
-const { writeFileSync, appendFileSync } = require('fs');
+const routes = require('../local/routes');
+const util = require('../util/util');
 
 /*
     The start function will be called to start your node.
@@ -9,46 +10,32 @@ const { writeFileSync, appendFileSync } = require('fs');
     After your node has booted, you should call the callback.
 */
 
-const services_list = [
-  'status', 'routes', 'comm', 'groups', 'mem', 'store'
-];
 
 const start = function(callback) {
-
-  // console.log("STARTING NODE HTTP SERVER...", global.nodeConfig.port, global.nodeConfig.ip)
   const server = http.createServer((req, res) => {
-    // const serialize = require('../../config').util.serialize;
-    // const deserialize = require('../../config').util.deserialize;
-    const serialize = distribution.util.serialize;
-    const deserialize = distribution.util.deserialize;
-
     /* Your server will be listening for PUT requests. */
+
     // Write some code...
-    if(req.method !== 'PUT'){
-      res.writeHead(405, 'method not allowed');
-      res.end();
-      return;
-    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
 
     /*
       The path of the http request will determine the service to be used.
       The url will have the form: http://node_ip:node_port/service/method
     */
 
+
     // Write some code...
-    const parsed_url = url.parse(req.url);
-    const gid = parsed_url.pathname.split('/')[1];
-    const service = parsed_url.pathname.split('/')[2];
-    const method = parsed_url.pathname.split('/')[3];
-    if(!gid || !service || !method){
-      res.writeHead(400, 'bad request');
-      res.end();
-      return;
+    let parsedUrl = url.parse(req.url);
+    let path = parsedUrl.pathname; // /service/method
+    let pathParts = path.split('/').filter(Boolean); // Remove empty parts
+    let gid = pathParts[0]; // The first part of the path is the gid
+    let service = pathParts[1];
+    let method = pathParts[2];
+
+    let routeConfig = {
+      gid: gid,
+      service: service
     }
-    // console.log("NODE REQUEST", global.nodeConfig, gid, service, method);
-    // appendFileSync(`./temp-${global.nodeConfig.port}.txt`, `NODE REQUEST ${global.nodeConfig.gid} ${gid} ${service} ${method}\n`);
-    // appendFileSync(`./temp-${global.nodeConfig.port}.txt`, `    $${Object.keys(distribution)}\n`);
-    // appendFileSync(`./temp-${global.nodeConfig.port}.txt`, `    !${Object.keys(global.distribution)}\n`);
 
     /*
 
@@ -63,91 +50,82 @@ const start = function(callback) {
       format.
 
       Our nodes expect data in JSON format.
-    */
+  */
 
     // Write some code...
-    let body_data = '';
+
+    let body = [];
+
     req.on('data', (chunk) => {
-      body_data += chunk;
+      body.push(chunk);
     });
+
     req.on('end', () => {
+      /* Here, you can handle the service requests. 
+4
+      Use the local routes service to get the service you need to call.
+      You need to call the service with the method and arguments provided in the request.
+      Then, you need to serialize the result and send it back to the caller.
+      */
+
+      // Write some code...
+      let bodyData = Buffer.concat(body).toString();
+      let args = [];
       try {
-        let data;
-        if(body_data === ''){
-          data = [];
-        } else {
-          data = deserialize(body_data);
-          if(!Array.isArray(data)) data = [data];
-        }
-
-        // console.log('NODE', gid, service, method);
-
-        if(method === 'call' && !services_list.includes(service)){
-          const rpc = global.toLocal[service];
-
-          rpc(...data, (err, result) => {
-            if(err){
-              res.writeHead(400, 'rpc error');
-              res.end();
-              return;
-            }
-            const serialized_result = serialize(result);
-            res.writeHead(200, 'ok', {'Content-Type': 'application/json'});
-            res.end(serialized_result);
-            return;
-          });
-          return;
-        }
-
-        // comment out this case cuz I don't think its needed?
-        // else if(services_list.includes(service)){
-
-          distribution.local.routes.get({gid, service}, (err, service_function) => {
-            if(err instanceof Error){
-              res.writeHead(400, 'node local routing error');
-              res.end();
-              return;
-            }
-
-            let method_function = service_function[method];
-            // appendFileSync('./PLEASE-NODE-ERROR.txt', `${JSON.stringify(data)}\n`);
-            method_function(...data, (err, result) => {
-              if(err instanceof Error){
-                // appendFileSync('./PLEASE-NODE-ERROR.txt', `${err}\n`);
-                res.writeHead(400, 'service function error ' + `${JSON.stringify(err)} (${gid} ${service} ${method})`);
-                res.end();
-                return;
-              }
-  
-              let serialized_result;
-              if(typeof err === "object" && typeof result === "object"){
-                serialized_result = serialize({e: err, v: result});
-              } else {
-                serialized_result = serialize(result);
-              }
-              res.writeHead(200, 'ok', {'Content-Type': 'application/json'});
-              res.end(serialized_result);
-              return;
-            });
-          });
-          return;
-
-        // } else {
-        //   res.writeHead(400, `service [${service}] does not exist error`);
-        //   res.end();
-        //   return;
-        // }
-      } catch (error) {
-        // appendFileSync(`./temp-${global.nodeConfig.port}.txt`, `${error}\n`);
-        
-        res.writeHead(400, 'parsing or response errors: ' + error);
-        res.end();
-        return;
+        const parsed = JSON.parse(bodyData);
+        args = util.deserialize(parsed);
+      } catch (e) {
+        log(`Error parsing JSON: ${e}`);
       }
-    });
+      routes.get(routeConfig, (err, serviceObj) => {
+        if (err) {
+          // Couldn’t get the service
+          res.end(JSON.stringify(util.serialize([err, null])));
+        } else {
+          // Wrap the call in a try/catch in case the method call throws synchronously
+          if (!serviceObj[method]) {
+            res.end(JSON.stringify(util.serialize([new Error(`Method ${method} not found`), null])));
+            return
+          } 
+          const distributedFlag = gid && gid !== 'local'
+
+          const formatResp = (error, value) => {
+            if (distributedFlag) {
+              const errMap = error || {}
+              const resMap = value || {}
+              res.end(JSON.stringify(util.serialize([errMap, resMap])));
+            } else {
+              if (error) {
+                res.end(JSON.stringify(util.serialize([error, null])));
+              } else {
+                res.end(JSON.stringify(util.serialize([null, value])));
+              }
+            }
+          }
+
+
+
+          try {
+            if (args.length > 0) {
+              serviceObj[method](...args, (error, value) => {
+                formatResp(error, value);
+              });
+            } else {
+              serviceObj[method]((error, value) => {
+                formatResp(error, value);
+              });
+            }
+          } catch (e) {
+            // If service[method] threw an error before calling any callback
+            res.end(JSON.stringify(util.serialize([e, null])));
+          }
+        
+        }
+      });
+    }
+  );
   });
 
-  // Write some code...
 
   /*
     Your server will be listening on the port and ip specified in the config
@@ -159,10 +137,9 @@ const start = function(callback) {
   */
 
   server.listen(global.nodeConfig.port, global.nodeConfig.ip, () => {
-    // log(`Server running at http://${global.nodeConfig.ip}:${global.nodeConfig.port}/`);
-    // console.log("STARTED SERVER", `at http://${global.nodeConfig.ip}:${global.nodeConfig.port}/`)
+    log(`Server running at http://${global.nodeConfig.ip}:${global.nodeConfig.port}/`);
     global.distribution.node.server = server;
-    callback(server, () => {});
+    callback(server);
   });
 
   server.on('error', (error) => {

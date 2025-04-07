@@ -1,8 +1,15 @@
 /** @typedef {import("../types").Callback} Callback */
 /** @typedef {import("../types").Node} Node */
-
-const { appendFileSync } = require("fs");
 const http = require('http');
+const util = require("../util/util");
+
+const cb = (e, v) => {
+    if (e) {
+        console.error(e);
+    } else {
+        console.log(v);
+    }
+};
 
 /**
  * @typedef {Object} Target
@@ -18,80 +25,85 @@ const http = require('http');
  * @return {void}
  */
 function send(message, remote, callback) {
-    // const serialize = require('../../config').util.serialize;
-    // const deserialize = require('../../config').util.deserialize;
-    const serialize = distribution.util.serialize;
-    const deserialize = distribution.util.deserialize;
-
-    // console.log("COMM SEND", message, remote);
-    let data;
-    try {
-        data = serialize(message);
-    } catch (error) {
-        callback(error);
+    callback = callback || cb;
+    if (message === undefined || message === null) {
+        // If no message is provided, we assume the default message is a node id
+        message = ['nid'];
+    }
+    if (remote === undefined || remote === null || !remote.node) {
+        callback(new Error('Remote node configuration is required'), null);
         return;
     }
+    if (!remote.service || !remote.method) { 
+        callback(new Error('Service and method are required'), null);
+        return;
+    }
+    let gid = remote.gid || "local";
+    let service = remote.service;
+    let method = remote.method;
+    let nodeConfig = remote.node; // {ip: , port: }
 
-    // console.log("REMOTE PARAMS", remote)
-    if(!remote.node) { callback(new Error('no node')); return; }
-    if(!remote.node.ip) { callback(new Error('no node ip')); return; }
-    if(!remote.node.port) { callback(new Error('no node port')); return; }
-    if(!remote.service) { callback(new Error('no service')); return; }
-    if(!remote.method) { callback(new Error('no method')); return; }
-
-    const has_gid = "gid" in remote;
+    const path = `/${gid}/${service}/${method}`;
 
     const options = {
+        hostname: nodeConfig.ip,
+        port: nodeConfig.port,
+        path: path,
         method: 'PUT',
-        hostname: remote.node.ip,
-        port: remote.node.port, 
-        path: `/${has_gid ? remote.gid : 'local'}/${remote.service}/${remote.method}`,
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(data)
-        }
+        headers: { 'Content-Type': 'application/json' }
     };
-    if(remote.method !== 'stop') {
-        // console.log("COMM SEND", options, data)
-    }
 
-    // use timeout to let first comm request finish before the next comm request (i.e. send a send)
-    setTimeout(() => {  
-        const req = http.request(options, (res) => {
-            let response_data = '';
-            res.on('error', (e) => {
-                callback(e)
-            });
+    const req = http.request(options, (res) => {
 
-            res.on('data', (chunk) => {
-                response_data += chunk;
-            });
-        
-            res.on('end', () => {
-                try {
-                    // appendFileSync("PLEASE-COMM-LOCAL.txt", `${res.statusCode} ${response_data} ${res.statusMessage}\n`);
-                    if(res.statusCode !== 200){
-                        callback(new Error(`errored in comm with status code ${res.statusCode} and message ${res.statusMessage}`));
-                        return;
-                    }
-                    const result = deserialize(response_data);
-                    if(typeof result === "object" && 'e' in result && 'v' in result){ // distributed callback
-                        callback(result.e, result.v); 
-                    } else { // non-distributed callback
-                        callback(null, result);
-                    }
-                } catch (error) {
-                    callback(new Error(`ERR: ${error.message} and ${response_data}`));
+        // First we process the response by listening for data events
+        let chunks = [];
+
+        res.on('data', (chunk) => {
+            chunks.push(chunk);
+        });
+
+        // Once all of the data has been processed, we can parse it
+        res.on('end', () => {
+            let body = Buffer.concat(chunks).toString();
+            let parsed;
+            try {
+                parsed = JSON.parse(body);
+                parsed = util.deserialize(parsed);
+            } catch (e) {
+                callback(new Error('Failed to parse JSON response'), null);
+                return;
+            }
+            
+            // The remote node typically returns [error, value]
+            if (!Array.isArray(parsed) || parsed.length !== 2) {
+                return callback(new Error('Invalid response format: ' + body));
+            }
+            let [err, val] = parsed;
+
+            // If the remote serialized an error, it might be a string or an object
+            if (err && (err instanceof Error || (typeof err === 'string' && err.trim() !== '') || (typeof err === 'object' && Object.keys(err).length > 0))) {
+                if (typeof err === 'object' && !Array.isArray(err)) {
+                    err = JSON.stringify(err);
                 }
-            });
+                return callback(new Error(err), null);
+            }
+
+            // No error => pass the value
+            if (gid !== 'local') {
+                callback(err, val);
+            } else {
+                callback(null, val);
+            }
         });
-        req.on('error', (e) => {
-            // console.log("COMM ERROR", e);
-            callback(new Error(e))
-        });
-        req.write(data);
-        req.end();
     });
+
+    req.on('error', (e) => {
+        callback(new Error(e.message), null);
+    });
+
+    // Send the message as a JSON string
+    req.write(JSON.stringify(util.serialize(message)));
+    req.end();
 }
 
 module.exports = {send};

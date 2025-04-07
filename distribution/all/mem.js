@@ -1,74 +1,150 @@
-const { appendFileSync } = require('fs');
+
+const local = distribution.local;
+const util = require("../util/util");
+const id = util.id;
 
 function mem(config) {
   const context = {};
   context.gid = config.gid || 'all';
-  context.hash = config.hash || global.distribution.util.id.naiveHash;
+  context.hash = config.hash || global.distribution.util.id.consistentHash; // default to consistentHash if not provided
+
+  const cb = (error, value) => {
+    if (error) {
+      console.error(error);
+    } else {
+      console.log(value);
+    }
+  };
+
+  function getChosenNode(configuration, callback) {
+    distribution.local.groups.get(context.gid, (err, group) => {
+        if (err) {
+          return null;
+        }
+      // 2) Build array of NIDs from the group’s node configs
+      const nodeConfigs = Object.values(group); // an array of {ip, port} objects
+      const nids = nodeConfigs.map((nc) => id.getNID(nc));
+
+      // 3) Get the key id
+      const kid = id.getID(configuration);
+
+      // 4) Use our chosen hash function to pick exactly one NID
+      const chosenNID = context.hash(kid, nids);
+
+      // 5) find the node config whose NID matches chosenNID
+      let chosenNode = nodeConfigs.find((nc) => id.getNID(nc) === chosenNID);
+      callback(null, chosenNode);
+    });
+  }
 
   /* For the distributed mem service, the configuration will
           always be a string */
   return {
     get: (configuration, callback) => {
-      const util = distribution.util;
-      const kid = util.id.getID(configuration);
+      callback = callback || cb;
+      if (configuration === undefined || configuration === null ){
+        callback(new Error('Configuration is required'), null);
+        return;
+      }
 
-      // should this be [context.gid]?
-      distribution.local.comm.send(
-        [context.gid], {service: 'groups', method: 'get', node: global.nodeConfig}, 
-        (e, v) => {
-          if(e) return callback(e);
+      // 3) Get the correct node
+      getChosenNode(configuration, (err, chosenNode) => {
+        if (err) return callback(new Error('Could not find a node'), null);
 
-          const sids = Object.keys(v);
-          if(sids.length === 0) return callback(new Error(`no nodes found in group ${context.gid} (get)`));
-          const nids = Object.values(v).map(node => util.id.getID({ip: node.ip, port: node.port}));
-          const chosen_sid = context.hash(kid, nids).substring(0, 5);
-          const target_node = { ip: v[chosen_sid].ip, port: v[chosen_sid].port };
+        // 6) Send the key to the chosen node
+        const config = {
+          service: 'mem',
+          method: 'get',
+          node: chosenNode
+        };
 
-          distribution.local.comm.send(
-            [configuration], 
-            { gid: 'local', node: target_node, service: 'mem', method: 'get' }, 
-            callback
-          );
+        const messageConfig = {
+          key: configuration,
+          gid: context.gid
         }
-      );      
+
+        const message = [messageConfig];
+
+        local.comm.send(message, config, (err, val) => {
+          if (err) {
+            callback(err, null);
+            return;
+          }
+          callback(null, val);
+        });
+      });
     },
 
     put: (state, configuration, callback) => {
-      const util = distribution.util;
-      const key = configuration !== null ? configuration : util.id.getID(state);
-      const kid = util.id.getID(key);
+      callback = callback || cb;
+      if (state === undefined || state === null ){
+        callback(new Error('State is required'), null);
+        return;
+      }
 
-      distribution.local.comm.send(
-        [context.gid], {service: 'groups', method: 'get', node: global.nodeConfig}, 
-        (e, v) => {
-          if(e) return callback(e);
+      if (configuration === null) {
+        configuration = id.getID(state);
+      }
 
-          const sids = Object.keys(v);
-          if(sids.length === 0) return callback(new Error(`no nodes found in group ${context.gid} (put) ${global.nodeConfig.port}`));
-          const nids = Object.values(v).map(node => util.id.getID({ip: node.ip, port: node.port}));
-          const chosen_sid = context.hash(kid, nids).substring(0, 5);
-          const target_node = { ip: v[chosen_sid].ip, port: v[chosen_sid].port };
+      // 3) Get the correct node
+      getChosenNode(configuration , (err, chosenNode) => {
+        if (err) return callback(new Error('Could not find a node'), null);
+        // 6) Send the key to the chosen node
+        const config = {
+          service: 'mem',
+          method: 'put',
+          node: chosenNode
+        };
 
-          distribution.local.comm.send(
-            [state, configuration], 
-            { gid: 'local', node: target_node, service: 'mem', method: 'put' }, 
-            callback
-          );
+        let messageConfig = {
+          key: configuration,
+          gid: context.gid
         }
-      );      
+
+        const message = [state, messageConfig];
+
+        local.comm.send(message, config, (err, val) => {
+          if (err) {
+            callback(err, null);
+            return;
+          }
+          callback(null, val);
+        });
+      });
     },
 
     del: (configuration, callback) => {
-      distribution[context.gid].comm.send(
-        [configuration], {service: 'mem', method: 'del'}, 
-        (e, v) => {
-          if(e instanceof Error) return callback(e);
-          // unpack distributed delete, will all error except for v
-          if(v !== undefined && typeof v === "object" && Object.keys(v).length === 1) return callback(null, Object.values(v)[0]);
-          if(typeof e === "object" && Object.keys(e).length > 0) return callback(new Error("distributed delete error"));
-          return callback(e, v);
+      callback = callback || cb;
+      if (configuration === undefined || configuration === null ){
+        callback(new Error('Configuration is required'), null);
+        return;
+      }
+      // 3) Get the correct node
+      getChosenNode(configuration, (err, chosenNode) => {
+        if (err) return callback(new Error('Could not find a node'), null);
+
+        // 6) Send the key to the chosen node
+        const config = {
+          service: 'mem',
+          method: 'del',
+          node: chosenNode
+        };
+
+        const messageConfig = {
+          key: configuration,
+          gid: context.gid
         }
-      );      
+
+        const message = [messageConfig];
+
+        local.comm.send(message, config, (err, val) => {
+          if (err) {
+            callback(err, null);
+            return;
+          }
+          callback(null, val);
+        });
+      });
     },
 
     reconf: (configuration, callback) => {
