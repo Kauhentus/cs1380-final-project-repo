@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-const util = require("./jdistribution/util/util.js");
-const log = require("./jdistribution/util/log.js");
+const util = require("./distribution/util/util.js");
+const log = require("./distribution/util/log.js");
 const args = require("yargs").argv;
 
 // Default configuration
@@ -53,9 +53,9 @@ if (global.distribution === undefined) {
   global.distribution = distribution;
 }
 
-distribution.util = require("./jdistribution/util/util.js");
-distribution.local = require("./jdistribution/local/local.js");
-distribution.node = require("./jdistribution/local/node.js");
+distribution.util = require("./distribution/util/util.js");
+distribution.local = require("./distribution/local/local.js");
+distribution.node = require("./distribution/local/node.js");
 
 for (const key in distribution.local) {
   distribution.local.routes.put(distribution.local[key], key);
@@ -63,23 +63,23 @@ for (const key in distribution.local) {
 
 /* Initialize distribution object */
 distribution["all"] = {};
-distribution["all"].status = require("./jdistribution/all/status.js")({
+distribution["all"].status = require("./distribution/all/status.js")({
   gid: "all",
 });
-distribution["all"].comm = require("./jdistribution/all/comm.js")({
+distribution["all"].comm = require("./distribution/all/comm.js")({
   gid: "all",
 });
-distribution["all"].gossip = require("./jdistribution/all/gossip.js")({
+distribution["all"].gossip = require("./distribution/all/gossip.js")({
   gid: "all",
 });
-distribution["all"].groups = require("./jdistribution/all/groups.js")({
+distribution["all"].groups = require("./distribution/all/groups.js")({
   gid: "all",
 });
-distribution["all"].routes = require("./jdistribution/all/routes.js")({
+distribution["all"].routes = require("./distribution/all/routes.js")({
   gid: "all",
 });
-distribution["all"].mem = require("./jdistribution/all/mem.js")({ gid: "all" });
-distribution["all"].store = require("./jdistribution/all/store.js")({
+distribution["all"].mem = require("./distribution/all/mem.js")({ gid: "all" });
+distribution["all"].store = require("./distribution/all/store.js")({
   gid: "all",
 });
 
