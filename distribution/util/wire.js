@@ -1,14 +1,10 @@
 const log = require('../util/log');
 
-
-// function createRPC(func) {
-//   // Write some code...
-// }
-
 /*
   The toAsync function transforms a synchronous function that returns a value into an asynchronous one,
   which accepts a callback as its final argument and passes the value to the callback.
 */
+global.toLocal = {};
 function toAsync(func) {
   log(`Converting function to async: ${func.name}: ${func.toString().replace(/\n/g, '|')}`);
 
@@ -29,6 +25,11 @@ function toAsync(func) {
   return asyncFunc;
 }
 
+/**
+ * This function generates an RPC stub by creating a service on the local node that is
+ * then called everytime this RPC function is called. This allows for the code to always
+ * run on this node, no matter where it is called from.
+ */
 let createRPC = require('@brown-ds/distribution/distribution/util/wire').createRPC;
 
 

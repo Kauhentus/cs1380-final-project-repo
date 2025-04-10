@@ -79,7 +79,7 @@ groups.put = function(config, group, callback) {
             if (hash && (service === 'mem' || service === 'store')) {
                 serviceObject[service] = serviceTemplate({gid: gid, hash: hash});
             } else {
-                serviceObject[service] = serviceTemplate({gid: gid, hash: id.consistentHash});
+                serviceObject[service] = serviceTemplate({gid: gid, hash: id.naiveHash});
             }
         }
         global.distribution[gid] = serviceObject;

@@ -37,6 +37,10 @@ const mem = require('./mem');
 
 const store = require('./store');
 
+const indexer = require('./indexer');
+
+const crawler = require('./crawler');
+
 module.exports = {
   status: status,
   routes: routes,
@@ -45,4 +49,6 @@ module.exports = {
   gossip: gossip,
   mem: mem,
   store: store,
+  indexer: indexer,
+  crawler: crawler
 };

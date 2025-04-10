@@ -112,6 +112,7 @@ function get(configuration, callback) {
 
   const groupDir = path.join('store', nodeID, gid);
   const filePath = path.join(groupDir, sanitizeKey(key) + '.json');
+  // console.log("GETTING FROM THE FILEPATH: ", filePath)
 
   // check file existence
   if (!fs.existsSync(filePath)) {
@@ -126,6 +127,8 @@ function get(configuration, callback) {
     try {
       const parsed = JSON.parse(data);
       const obj = util.deserialize(parsed);
+      // console.log("NodeID: %s, retrieved file: %s", nodeID, filePath);
+      // console.log("Deserialized object:", obj); // For debugging purposes
       return callback(null, obj);
     } catch (error) {
       console.error(`Error deserializing data for key ${key}: ${error.message}`);
@@ -188,7 +191,7 @@ function del(configuration, callback) {
       return callback(e, null);
     }
 
-    console.log("NodeID: %s, deleting file: %s", nodeID, filePath);
+    // console.log("NodeID: %s, deleting file: %s", nodeID, filePath);
 
     // now remove the file
     fs.unlink(filePath, (err) => {
@@ -277,51 +280,107 @@ function append(state, configuration, callback) {
   }
 }
 
+
 function bulk_append(data, callback) {
-  const entries = data.entries;
-  const jid = data.jid;
-  const gid = data.gid || 'local';
+  const prefixBatches = data.prefixBatches || [];
+  const gid = data.gid || 'index';
   
   const nodeConfig = global.nodeConfig;
   const nodeID = util.id.getNID(nodeConfig);
-  const shuffleResultName = "reduce@" + jid;
   const groupDir = path.join('store', nodeID, gid);
-  const filePath = path.join(groupDir, sanitizeKey(shuffleResultName) + '.json');
   
   // Create directory if needed
   fs.mkdirSync(groupDir, { recursive: true });
   
-  // Read existing data or create new object
-  let results = {};
-  if (fs.existsSync(filePath)) {
-    try {
-      const data = fs.readFileSync(filePath, 'utf8');
-      const parsed = JSON.parse(data);
-      results = util.deserialize(parsed);
-    } catch (error) {
-      console.error(`Error reading shuffle results: ${error.message}`);
-    }
-  }
+  const results = {};
   
-  // Process all entries
-  entries.forEach(entry => {
-    const key = entry.key;
-    const value = entry.entry[key];
+  try {
+    // Process each prefix batch
+    for (const batch of prefixBatches) {
+      const prefix = batch.prefix;
+      const prefixData = batch.data;
+      const filePath = path.join(groupDir, sanitizeKey(`prefix-${prefix}`) + '.json');
+      
+      // Read existing data for this prefix
+      let existingData = {};
+      if (fs.existsSync(filePath)) {
+        try {
+          const fileContent = fs.readFileSync(filePath, 'utf8');
+          const parsed = JSON.parse(fileContent);
+          existingData = util.deserialize(parsed);
+        } catch (error) {
+          console.error(`Error reading prefix data for ${prefix}: ${error.message}`);
+        }
+      }
+      
+      // Merge new data with existing data - ENHANCED ALGORITHM
+      for (const term in prefixData) {
+        // If term doesn't exist yet in our index, initialize it
+        if (!existingData[term]) {
+          existingData[term] = {
+            df: 0, // Will be incremented below
+            postings: {}
+          };
+        }
+        
+        // Process each document containing this term
+        for (const docEntry of prefixData[term]) {
+          const docId = docEntry.url;
+          
+          // Only increment df if this document wasn't already counted
+          if (!existingData[term].postings[docId]) {
+            existingData[term].df += 1;
+          }
+          
+          // Create or update posting for this document with all enhanced data
+          existingData[term].postings[docId] = {
+            // Basic term frequency
+            tf: docEntry.tf,
+            
+            // Enhanced ranking factors if available
+            ranking: docEntry.ranking || {
+              tf: docEntry.tf,
+              taxonomyBoost: 1.0,
+              binomialBoost: 1.0,
+              positionBoost: 1.0,
+              score: docEntry.tf // Default to tf if score not calculated
+            },
+            
+            // Taxonomy information if available
+            taxonomyLevel: docEntry.taxonomyLevel || null,
+            isBinomial: docEntry.isBinomial || false,
+            
+            // Page metadata if available
+            pageInfo: docEntry.pageInfo || {},
+            
+            // Always update timestamp
+            timestamp: Date.now()
+          };
+        }
+      }
+      
+      // Write the updated data back
+      const serialized = util.serialize(existingData);
+      fs.writeFileSync(filePath, JSON.stringify(serialized));
+      
+      // Return basic metrics about the operation
+      results[prefix] = { 
+        termsProcessed: Object.keys(prefixData).length,
+        totalTermsStored: Object.keys(existingData).length
+      };
+    }
     
-    if (!results[key]) {
-      results[key] = value;
-    } else if (Array.isArray(results[key])) {
-      results[key].push(value);
-    } else {
-      results[key] = [results[key], value];
-    }
-  });
-  
-  // Write results back to file
-  const serialized = util.serialize(results);
-  fs.writeFileSync(filePath, JSON.stringify(serialized));
-  callback(null, results);
+    // Return overall operation results
+    callback(null, {
+      status: 'success',
+      processingTime: Date.now(), // For timing reference
+      results: results,
+      totalPrefixesProcessed: prefixBatches.length
+    });
+  } catch (error) {
+    console.error("Error in bulk_append:", error);
+    callback(error, null);
+  }
 }
-
 
 module.exports = {put, get, getGroupKeys, del, append, bulk_append};

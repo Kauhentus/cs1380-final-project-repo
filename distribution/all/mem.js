@@ -6,7 +6,7 @@ const id = util.id;
 function mem(config) {
   const context = {};
   context.gid = config.gid || 'all';
-  context.hash = config.hash || global.distribution.util.id.consistentHash; // default to consistentHash if not provided
+  context.hash = config.hash || global.distribution.util.id.naiveHash; // default to consistentHash if not provided
 
   const cb = (error, value) => {
     if (error) {
@@ -148,6 +148,21 @@ function mem(config) {
     },
 
     reconf: (configuration, callback) => {
+    },
+    
+    clear: (configuration, callback) => {
+      callback = callback || cb;
+      
+      // Send clear command to all nodes in the group
+      const config = {
+        service: 'mem',
+        method: 'clear'
+      };
+      
+      distribution[context.gid].comm.send([configuration], config, (errMap, resMap) => {
+        // Even if some nodes fail, continue with those that succeeded
+        callback(errMap, resMap);
+      });
     },
   };
 };

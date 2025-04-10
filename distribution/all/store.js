@@ -5,7 +5,7 @@ const id = util.id;
 function store(config) {
   const context = {};
   context.gid = config.gid || 'all';
-  context.hash = config.hash || global.distribution.util.id.consistentHash; // default to consistentHash if not provided
+  context.hash = config.hash || global.distribution.util.id.naiveHash; // default to consistentHash if not provided
 
   const cb = (error, value) => {
     if (error) {
@@ -20,24 +20,25 @@ function store(config) {
         if (err) {
           return null;
         }
-      // 2) Build array of NIDs from the group’s node configs
       const nodeConfigs = Object.values(group); // an array of {ip, port} objects
       const nids = nodeConfigs.map((nc) => id.getNID(nc));
-
-      // 3) Get the key id
       const kid = id.getID(configuration);
 
-      // 4) Use our chosen hash function to pick exactly one NID
       const chosenNID = context.hash(kid, nids);
-
-      // 5) find the node config whose NID matches chosenNID
       chosenNode = nodeConfigs.find((nc) => id.getNID(nc) === chosenNID);
       callback(null, chosenNode);
     });
-  }
+  };
 
-  /* For the distributed store service, the configuration will
-          always be a string */
+  function stripPrefix(key) {
+    console.log("STRIPPING KEY: ", key)
+    if (typeof key === 'string' && key.startsWith('prefix-')) {
+      return key.substring(7); // Remove "prefix-" (7 characters)
+    }
+    console.log("STRIPPED KEY: ", key)
+    return key;
+  };
+
   return {
     get: (configuration, callback) => {
       callback = callback || cb;
@@ -69,8 +70,9 @@ function store(config) {
         return;
       }
 
+
       // 3) Get the correct node
-      getChosenNode(configuration, (err, chosenNode) => {
+      getChosenNode(stripPrefix(configuration), (err, chosenNode) => {
         if (err) return callback(new Error('Could not find a node'), null);
 
         // 6) Send the key to the chosen node
@@ -87,6 +89,7 @@ function store(config) {
 
         const message = [messageConfig];
 
+        // console.log(`Sending get request to node: ${JSON.stringify(chosenNode)} with key: ${JSON.stringify(messageConfig)}`);
         local.comm.send(message, config, (err, val) => {
           if (err) {
             callback(err, null);

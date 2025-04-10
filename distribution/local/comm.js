@@ -24,7 +24,7 @@ const cb = (e, v) => {
  * @param {Callback} [callback]
  * @return {void}
  */
-function send(message, remote, callback) {
+function send(message, remote, callback, retries = 3, backoff = 500) {
     callback = callback || cb;
     if (message === undefined || message === null) {
         // If no message is provided, we assume the default message is a node id
@@ -50,7 +50,10 @@ function send(message, remote, callback) {
         port: nodeConfig.port,
         path: path,
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 30000, // 30-second timeout
+        keepAlive: true,
+        keepAliveMsecs: 1000
     };
 
     const req = http.request(options, (res) => {
@@ -98,6 +101,13 @@ function send(message, remote, callback) {
     });
 
     req.on('error', (e) => {
+        if (retries > 0 && (e.code === 'ECONNRESET' || e.code === 'ECONNREFUSED')) {
+            console.log(`Connection error (${e.code}), retrying in ${backoff}ms. Retries left: ${retries}`);
+            setTimeout(() => {
+                send(message, remote, callback, retries - 1, backoff * 2);
+            }, backoff);
+            return;
+        }
         callback(new Error(e.message), null);
     });
 

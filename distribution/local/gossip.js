@@ -1,7 +1,5 @@
 const gossip = {};
 
-
-gossip.recv = function(payload, callback) {
-};
+gossip.recv = require('@brown-ds/distribution/distribution/local/gossip').revc; 
 
 module.exports = gossip;

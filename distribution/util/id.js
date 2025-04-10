@@ -1,7 +1,7 @@
 /** @typedef {import("../types.js").Node} Node */
 
-const assert = require("assert");
-const crypto = require("crypto");
+const assert = require('assert');
+const crypto = require('crypto');
 
 // The ID is the SHA256 hash of the JSON representation of the object
 /** @typedef {!string} ID */
@@ -11,9 +11,9 @@ const crypto = require("crypto");
  * @return {ID}
  */
 function getID(obj) {
-  const hash = crypto.createHash("sha256");
+  const hash = crypto.createHash('sha256');
   hash.update(JSON.stringify(obj));
-  return hash.digest("hex");
+  return hash.digest('hex');
 }
 
 /**
@@ -22,7 +22,7 @@ function getID(obj) {
  * @return {ID}
  */
 function getNID(node) {
-  node = { ip: node.ip, port: node.port };
+  node = {ip: node.ip, port: node.port};
   return getID(node);
 }
 
@@ -44,12 +44,13 @@ function getMID(message) {
 
 function idToNum(id) {
   const n = BigInt("0x" + id);
-  assert(!isNaN(n), "idToNum: id is not in KID form!");
+  // assert(!isNaN(n), "idToNum: id is not in KID form!");
   return n;
 }
 
 function naiveHash(kid, nids) {
   nids.sort();
+
   const index = idToNum(kid) % BigInt(nids.length);
   return nids[Number(index)];
 }
@@ -67,12 +68,12 @@ function consistentHash(kid, nids) {
 
 function rendezvousHash(kid, nids) {
   // We want to combine the KID with each NID
-  // and then we want to convert them to a
-  // numerical representation and sort them
+  // and then we want to convert them to a 
+  // numerical representation and sort them 
   // to choose the max
 
   let max = -Infinity;
-  let maxNID = "";
+  let maxNID = '';
   for (const nid of nids) {
     const combined = kid + nid;
     const combinedHash = getID(combined);

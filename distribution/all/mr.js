@@ -85,6 +85,8 @@ function mr(config) {
         return `[MR-${mrId}][${phase}][NODE:${nodeId}][${batchInfo}]${subBatchInfo}`;
       }
 
+      console.log(`[MR-${mrId}] Received notification for phase ${config.phase} from node ${config.nodeId}. Status: ${config.status}`);
+
       // Get the local group node count
       distribution.local.groups.get(config.gid, (err, group) => {
         if (err) {
@@ -107,9 +109,6 @@ function mr(config) {
           );
           return;
         }
-
-        // Track node statistics
-        const nodeId = config.nodeId || "unknown";
         
         // Track processing stats for each phase
         if (config.phase === "MAP") {
@@ -258,6 +257,7 @@ Phase Statistics:
             
             storageService.put([], {key: "map@" + job_id, gid: gid}, (err, val) => {
               if (err) {
+                console.error(`[MR-${job_id}] Node ${nodeId}: Error saving empty map results as no batch keys: ${err.message}`);
                 callback(err, null);
                 return;
               }
@@ -300,6 +300,7 @@ Phase Statistics:
               const mapResultName = "map@" + job_id;
               storageService.put(mapResults, {key: mapResultName, gid: gid}, (err, val) => {
                 if (err) {
+                  console.error(`[MR-${job_id}] Node ${nodeId}: Error saving map results: ${err.message}`);
                   callback(err, null);
                   return;
                 }
@@ -374,6 +375,7 @@ Phase Statistics:
                     const mapResultName = "map@" + job_id;
                     storageService.put(mapResults, {key: mapResultName, gid: gid}, (err, val) => {
                       if (err) {
+                        console.error(`[MR-${job_id}] Node ${nodeId}: Error saving map results: ${err.message}`);
                         callback(err, null);
                         return;
                       }
@@ -509,7 +511,7 @@ Phase Statistics:
               
               // Hash the key to determine target node
               const kid = distribution.util.id.getID(key);
-              const targetNID = distribution.util.id.consistentHash(kid, nids);
+              const targetNID = distribution.util.id.naiveHash(kid, nids);
               const targetNode = nodeConfigs.find((nc) => distribution.util.id.getNID(nc) === targetNID);
               
               if (!targetNode) {
@@ -951,7 +953,7 @@ Phase Statistics:
            if (e && !isEmptyObject(e)) {
             // Handle the error gracefully, log it and return
             console.error(`[MR-${mrId}] Error starting map phase:`, e);
-            console.error(`[MR-${mrId}] Setup config:`, JSON.stringify(setupConfig, null, 2));
+            // console.error(`[MR-${mrId}] Setup config:`, JSON.stringify(setupConfig, null, 2));
             cb(e, null); // Report the error back to the caller
           } else {
             console.log(`[MR-${mrId}] Map phase started successfully`);
