@@ -80,6 +80,10 @@ function query_one(query, callback) {
           const chosenNode = getChosenNode(prefix, nids, nodes);
 
           console.log(
+            `Current Node ${fs.global.nodeConfig.ip}:${global.nodeConfig.port}`
+          );
+
+          console.log(
             `Querier: Word: ${word}, prefix: ${prefix}, Chosen Node: ${JSON.stringify(
               chosenNode
             )}`
