@@ -143,13 +143,15 @@ function crawl_one(callback) {
 
       fs.appendFileSync(global.logging_path, `CRAWLING ONE: ${url}\n`);
 
+
+
       fetch(`https://en.wikipedia.org${url}`)
         .then((response) => {
           const contentLength = response.headers.get('content-length') || 0;
           metrics.crawling.bytesDownloaded += parseInt(contentLength);
           return response.text();
         })
-        .then((html) => {
+        .then(async (html) => {
           const root = parse(html);
 
           const biota = root.querySelector('table.infobox.biota');
@@ -164,7 +166,7 @@ function crawl_one(callback) {
             return [label, value];
           }).filter(item => item !== null);
 
-          const binomial_name = biota?.querySelector('span.binomial')?.text?.trim().toLocaleLowerCase();
+          const binomial_name = biota?.querySelector('span.binomial')?.text?.trim().toLocaleLowerCase() || '';
 
           const links_on_page = root.querySelectorAll('a').map(link => link.getAttribute('href'))
             .filter(link => link !== null && link !== undefined)
@@ -206,10 +208,40 @@ function crawl_one(callback) {
               wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
             }
 
+            const stripped_url = url.replace(/\/wiki\//, '');
+            const meta_data_endpoint = `https://en.wikipedia.org/api/rest_v1/page/summary/${stripped_url}`;
+            let title, description;
+            try {
+              await new Promise((resolve, reject) => {
+                fetch(meta_data_endpoint)
+                  .then(response => response.json())
+                  .then(data => {
+                    title = data.title;
+                    description = data.extract;
+                    if(title === "Not found.") {
+                      title = binomial_name;
+                      title[0] = title[0].toLocaleUpperCase();
+                    }
+                    resolve();
+                  })
+                  .catch(error => {
+                    console.error(`Error fetching metadata: ${error}`);
+                    reject(error);
+                  });
+              });
+            } catch(e) {
+              title = binomial_name;
+              title[0] = title[0].toLocaleUpperCase();
+              description = '';
+            }
+
             const species_data = {
               hierarchy: hierarchy,
               binomial_name: binomial_name,
               url: url,
+              title: title,
+              description: description,
+
               // !! ONLY SENDING wordCounts instead of all words to reduce transfer size
               word_counts: Object.fromEntries(wordCounts)
             };

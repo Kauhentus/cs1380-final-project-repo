@@ -87,55 +87,67 @@ distribution.node.start(async (server) => {
         });
     });
 
-    // await new Promise((resolve, reject) => {
-    //     distribution.querier_group.querier.query_one('leafy cultivation', (e, v) => {
-    //         const results = v.map(result => ({
-    //             binomialName: result.pageInfo.binomialName,
-    //             tf_idf: result.tf_idf,
-    //         }));
-    //         console.log(e, results);
-    //         resolve();
+    await new Promise((resolve, reject) => {
+        // distribution.querier_group.querier.query_one('leafy cultivation', (e, v) => {
+
+        distribution.querier_group.querier.query_one('juveniles', async (e, v) => {
+            const results = v.map(result => ({
+                binomialName: result.pageInfo.binomialName,
+                url: result.docId,
+                tf_idf: result.tf_idf,
+            }));
+            console.log(e, results);
+
+            // getting the data from the store
+            // await new Promise((resolve, reject) => {
+            //     distribution.crawler_group.store.get('/wiki/Lion%27s_mane_jellyfish', (e, v) => {
+            //         console.log(e, v);
+            //         resolve();
+            //     })
+            // });
+        
+            resolve();
+        });
+    });
+
+    // for(let i = 0; i < 100; i++){
+    //     if(i % 10 == 0) console.log(i);
+
+    //     await new Promise((resolve, reject) => {
+    //         const remote = { gid: 'local', service: 'crawler', method: 'crawl_one'}
+    //         distribution.crawler_group.comm.send([], remote, (e, v) => {
+    //             resolve();
+    //         });
     //     });
-    // });
 
-    for(let i = 0; i < 500; i++){
-        if(i % 10 == 0) console.log(i);
+    //     await new Promise((resolve, reject) => {
+    //         const remote = { gid: 'local', service: 'indexer', method: 'index_one'}
+    //         distribution.indexer_group.comm.send([], remote, (e, v) => {
+    //             resolve();
+    //         });
+    //     });
 
-        await new Promise((resolve, reject) => {
-            const remote = { gid: 'local', service: 'crawler', method: 'crawl_one'}
-            distribution.crawler_group.comm.send([], remote, (e, v) => {
-                resolve();
-            });
-        });
+    //     await new Promise((resolve, reject) => {
+    //         const remote = { gid: 'local', service: 'indexer_ranged', method: 'index_one'}
+    //         distribution.indexer_ranged_group.comm.send([], remote, (e, v) => {
+    //             resolve();
+    //         });
+    //     });
 
-        await new Promise((resolve, reject) => {
-            const remote = { gid: 'local', service: 'indexer', method: 'index_one'}
-            distribution.indexer_group.comm.send([], remote, (e, v) => {
-                resolve();
-            });
-        });
+    //     await new Promise((resolve, reject) => {
+    //         const remote = { gid: 'local', service: 'crawler', method: 'save_maps_to_disk'}
+    //         distribution.indexer_group.comm.send([], remote, (e, v) => {
+    //             resolve();
+    //         });
+    //     });
 
-        await new Promise((resolve, reject) => {
-            const remote = { gid: 'local', service: 'indexer_ranged', method: 'index_one'}
-            distribution.indexer_ranged_group.comm.send([], remote, (e, v) => {
-                resolve();
-            });
-        });
-
-        await new Promise((resolve, reject) => {
-            const remote = { gid: 'local', service: 'crawler', method: 'save_maps_to_disk'}
-            distribution.indexer_group.comm.send([], remote, (e, v) => {
-                resolve();
-            });
-        });
-
-        await new Promise((resolve, reject) => {
-            const remote = { gid: 'local', service: 'indexer', method: 'save_maps_to_disk'}
-            distribution.indexer_group.comm.send([], remote, (e, v) => {
-                resolve();
-            });
-        });
-    }
+    //     await new Promise((resolve, reject) => {
+    //         const remote = { gid: 'local', service: 'indexer', method: 'save_maps_to_disk'}
+    //         distribution.indexer_group.comm.send([], remote, (e, v) => {
+    //             resolve();
+    //         });
+    //     });
+    // }
 
     for(let i = 0; i < num_nodes; i++) await stop_nx(nodes[i]);
     server.close();

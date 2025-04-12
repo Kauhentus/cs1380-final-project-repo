@@ -91,6 +91,7 @@ function query_one(query, callback) {
             posting.tf_idf = parseFloat(posting.tf) * idf;
             return posting;
           });
+
           resolve(page_results);
         });;
       });

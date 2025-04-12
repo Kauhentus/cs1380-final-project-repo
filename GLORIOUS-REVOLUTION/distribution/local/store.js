@@ -168,6 +168,7 @@ function bulk_append(data, callback) {
           // Create or update posting for this document with all enhanced data
           existingData[term].postings[docId] = {
             // Basic term frequency
+            docId: docId,
             tf: docEntry.tf,
             
             // Enhanced ranking factors if available
