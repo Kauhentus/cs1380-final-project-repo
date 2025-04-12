@@ -80,7 +80,7 @@ function query_one(query, callback) {
           const chosenNode = getChosenNode(prefix, nids, nodes);
 
           console.log(
-            `Current Node ${fs.global.nodeConfig.ip}:${global.nodeConfig.port}`
+            `Current Node ${global.nodeConfig.ip}:${global.nodeConfig.port}`
           );
 
           console.log(
