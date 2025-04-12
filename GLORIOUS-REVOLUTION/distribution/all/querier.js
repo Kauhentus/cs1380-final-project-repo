@@ -15,6 +15,40 @@ const querier = function (config) {
       //   console.log(`QUERIER INITIALIZING... ${new Date()}`);
       //   console.log(`QUERIER QUERYING... ${query}`);
       //   console.log(`QUERIER GID: ${context.gid}`);
+      const COMMON_PREFIXES = require("../util/common_prefixes");
+      function getSmartPrefix(term) {
+        if (!term) return "aa";
+        const normalized = term.toLowerCase();
+        const basePrefix = normalized.substring(0, 2);
+        if (COMMON_PREFIXES.has(basePrefix) && term.length >= 3) {
+          return normalized.substring(0, 3);
+        }
+        return basePrefix;
+      }
+      function getChosenNode(key, nids, nodes) {
+        const kid = distribution.util.id.getID(key);
+        const chosenNID = distribution.util.id.naiveHash(kid, nids);
+        const chosenNode = nodes.find(
+          (nc) => distribution.util.id.getNID(nc) === chosenNID
+        );
+        return chosenNode;
+      }
+      //   distribution.local.groups.get("indexer_group", (e, v) => {
+      //     if (e) {
+      //       console.error(e);
+      //       callback(e);
+      //       return;
+      //     }
+      //     const nodes = Object.values(v);
+      //     const nids = nodes.map((node) => distribution.util.id.getNID(node));
+      //     const query_words = query
+      //       .split(" ")
+      //       .filter((word) => word.trim() !== "")
+      //       .map((word) => word.trim().toLowerCase());
+      //     const query_prefixes = query_words.map((word) => {
+      //       let prefix = getSmartPrefix(word);
+      //     });
+      //   });
       distribution[context.gid].comm.send(
         [query],
         { service: "querier", method: "query_one" },
@@ -23,9 +57,6 @@ const querier = function (config) {
             .split(" ")
             .filter((word) => word.trim() !== "")
             .map((word) => word.trim().toLowerCase());
-
-          console.log(`QUERIER QUERYING... ${query} ${query_words}`);
-          console.log(`QUERIER RESULTS: ${JSON.stringify(v)}`);
 
           const data = Object.values(v)
             .filter((result) => Array.isArray(result))

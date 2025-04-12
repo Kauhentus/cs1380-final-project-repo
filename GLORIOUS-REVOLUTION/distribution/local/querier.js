@@ -69,11 +69,21 @@ function query_one(query, callback) {
         0
       );
 
+      console.log(`Querier Words: ${JSON.stringify(query_words)}`);
+      console.log(
+        `Querier: total_doc_count: ${total_doc_count} ${JSON.stringify(v)}`
+      );
       // configs to query bulk appended prefix data
       const query_word_configs = query_words
         .map((word) => {
           const prefix = getSmartPrefix(word);
           const chosenNode = getChosenNode(prefix, nids, nodes);
+
+          console.log(
+            `Querier: Word: ${word}, prefix: ${prefix}, Chosen Node: ${JSON.stringify(
+              chosenNode
+            )}`
+          );
 
           const matching_ip = global.nodeConfig.ip === chosenNode.ip;
           const matching_port = global.nodeConfig.port === chosenNode.port;
