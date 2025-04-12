@@ -5,6 +5,7 @@
 */
 
 const fs = require('fs');
+const fsp = require('fs/promises');
 const path = require('path');
 const base_path = path.join(__dirname, '../../store');
 
@@ -37,9 +38,9 @@ function put(state, configuration, callback) {
     fs.mkdirSync(path.join(node_store_path, gid_folder), { recursive: true });
   }
   
-  fs.writeFileSync(file_path, util.serialize(state), { recursive: true });
-  
-  callback(null, state);
+  fs.writeFile(file_path, util.serialize(state), (err) => {
+    callback(null, state);
+  });
 }
 
 function get(configuration, callback) {
@@ -51,11 +52,13 @@ function get(configuration, callback) {
 
   // handle get all keys
   if(configuration === null){
-    const all_keys = fs.readdirSync(path.join(node_store_path, 'all'));
-    return callback(null, all_keys);
+    return fs.readdir(path.join(node_store_path, 'all'), (err, all_keys) => {
+      callback(null, all_keys);
+    });
   } else if(typeof configuration === "object" && configuration.key === null && "gid" in configuration){
-    const all_keys = fs.readdirSync(path.join(node_store_path, configuration.gid));
-    return callback(null, all_keys);
+    return fs.readdir(path.join(node_store_path, configuration.gid), (err, all_keys) => {
+      callback(null, all_keys);
+    });
   }
   
   let file_key;
@@ -73,9 +76,10 @@ function get(configuration, callback) {
     return;
   }
 
-  const data = fs.readFileSync(file_path);
-  const state = util.deserialize(data);
-  callback(null, state);
+  fs.readFile(file_path, {encoding: 'utf8'}, (err, data) => {
+    const state = util.deserialize(data);
+    callback(null, state);
+  });
 }
 
 function del(configuration, callback) {
@@ -116,6 +120,11 @@ function del(configuration, callback) {
 }
 
 function bulk_append(data, callback) {
+  (async () => {
+    
+  const perf = require('perf_hooks').performance;
+  const start = perf.now();
+
   const prefixBatches = data.prefixBatches || [];
   const gid = data.gid || 'index';
   
@@ -128,83 +137,98 @@ function bulk_append(data, callback) {
   const results = {};
   
   try {
-    // Process each prefix batch
+    // Process each prefix batch, grouping batches with same prefix together
+    const groupedBatches = {};
     for (const batch of prefixBatches) {
       const prefix = batch.prefix;
-      const prefixData = batch.data;
-      const filePath = path.join(groupDir, sanitizeKey(`prefix-${prefix}`) + '.json');
-      
-      // Read existing data for this prefix
-      let existingData = {};
-      if (fs.existsSync(filePath)) {
-        try {
-          const fileContent = fs.readFileSync(filePath, 'utf8');
-          const parsed = JSON.parse(fileContent);
-          existingData = util.deserialize(parsed);
-        } catch (error) {
-          console.error(`Error reading prefix data for ${prefix}: ${error.message}`);
-        }
+      if (!groupedBatches[prefix]) {
+        groupedBatches[prefix] = [];
       }
-      
-      // Merge new data with existing data - ENHANCED ALGORITHM
-      for (const term in prefixData) {
-        // If term doesn't exist yet in our index, initialize it
-        if (!existingData[term]) {
-          existingData[term] = {
-            df: 0, // Will be incremented below
-            postings: {}
-          };
+      groupedBatches[prefix].push(batch.data);
+    }
+
+    // so we can safely parallelize them with Promise.all
+    const process_promises = [];
+    for (const prefix in groupedBatches) {
+      process_promises.push(new Promise(async (resolve, reject) => {
+        const mergedPrefixData = {};
+        for (const dataObj of groupedBatches[prefix]) {
+          for (const term in dataObj) {
+            if (!mergedPrefixData[term]) {
+              mergedPrefixData[term] = [];
+            }
+            mergedPrefixData[term] = mergedPrefixData[term].concat(dataObj[term]);
+          }
+        }
+        const prefixData = mergedPrefixData;
+
+        // Read existing data for this prefix
+        const filePath = path.join(groupDir, sanitizeKey(`prefix-${prefix}`) + '.json');
+        let existingData = {};
+        if (fs.existsSync(filePath)) {
+          try {
+            const fileContent = fs.readFileSync(filePath, { encoding: 'utf8' }).toString();
+            existingData = JSON.parse(fileContent);
+          } catch (error) {
+            console.error(`Error reading prefix data for ${prefix}: ${error.message}`);
+          }
         }
         
-        // Process each document containing this term
-        for (const docEntry of prefixData[term]) {
-          const docId = docEntry.url;
-          
-          // Only increment df if this document wasn't already counted
-          if (!existingData[term].postings[docId]) {
-            existingData[term].df += 1;
+        // Merge new data with existing data - ENHANCED ALGORITHM
+        for (const term in prefixData) {
+          // If term doesn't exist yet in our index, initialize it
+          if (!existingData[term]) {
+            existingData[term] = {
+              df: 0, // Will be incremented below
+              postings: {}
+            };
           }
           
-          // Create or update posting for this document with all enhanced data
-          existingData[term].postings[docId] = {
-            // Basic term frequency
-            docId: docId,
-            tf: docEntry.tf,
+          // Process each document containing this term
+          for (const docEntry of prefixData[term]) {
+            const docId = docEntry.url;
             
-            // Enhanced ranking factors if available
-            ranking: docEntry.ranking || {
+            // Only increment df if this document wasn't already counted
+            if (!existingData[term].postings[docId]) {
+              existingData[term].df += 1;
+            }
+            
+            // Create or update posting for this document with all enhanced data
+            existingData[term].postings[docId] = {
+              docId: docId,
               tf: docEntry.tf,
-              taxonomyBoost: 1.0,
-              binomialBoost: 1.0,
-              positionBoost: 1.0,
-              score: docEntry.tf // Default to tf if score not calculated
-            },
-            
-            // Taxonomy information if available
-            taxonomyLevel: docEntry.taxonomyLevel || null,
-            isBinomial: docEntry.isBinomial || false,
-            
-            // Page metadata if available
-            pageInfo: docEntry.pageInfo || {},
-            
-            // Always update timestamp
-            timestamp: Date.now()
-          };
+              
+              ranking: docEntry.ranking || {
+                tf: docEntry.tf,
+                taxonomyBoost: 1.0,
+                binomialBoost: 1.0,
+                positionBoost: 1.0,
+                score: docEntry.tf // Default to tf if score not calculated
+              },
+              
+              taxonomyLevel: docEntry.taxonomyLevel || null,
+              isBinomial: docEntry.isBinomial || false,
+              pageInfo: docEntry.pageInfo || {},
+              timestamp: Date.now()
+            };
+          }
         }
-      }
-      
-      // Write the updated data back
-      const serialized = util.serialize(existingData);
-      fs.writeFileSync(filePath, JSON.stringify(serialized));
-      
-      // Return basic metrics about the operation
-      results[prefix] = { 
-        termsProcessed: Object.keys(prefixData).length,
-        totalTermsStored: Object.keys(existingData).length
-      };
+        
+        // Return basic metrics about the operation
+        results[prefix] = { 
+          termsProcessed: Object.keys(prefixData).length,
+          totalTermsStored: Object.keys(existingData).length
+        };
+
+        // must be synchronous to prevent multi-thread race conditions on local file system
+        fs.writeFileSync(filePath, JSON.stringify(existingData));
+        resolve();
+      }));
     }
+    await Promise.all(process_promises);
     
     // Return overall operation results
+    fs.appendFileSync(global.logging_path, `runtime ${perf.now() - start}\n`);
     callback(null, {
       status: 'success',
       processingTime: Date.now(), // For timing reference
@@ -215,9 +239,13 @@ function bulk_append(data, callback) {
     console.error("Error in bulk_append:", error);
     callback(error, null);
   }
+
+  })();
 }
 
 function read_bulk(configuration, callback) {
+  (async () => {
+
   const util = distribution.util;
   const id = util.id;
   const nid = id.getNID(global.nodeConfig);
@@ -230,8 +258,10 @@ function read_bulk(configuration, callback) {
   let gid_folder = is_group_put ? configuration.gid : 'all';
   let file_path = path.join(node_store_path, gid_folder, file_key);
 
-  const data = fs.readFileSync(file_path).toString();
+  const data = await fsp.readFile(file_path, { encoding: 'utf8'});
   callback(null, data);
+
+  })();
 }
 
 module.exports = {put, get, del, bulk_append, read_bulk};

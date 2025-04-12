@@ -78,7 +78,8 @@ function query_one(query, callback) {
         const word = config.word;
 
         distribution.local.store.read_bulk(config, (e, v) => {
-          const data = distribution.util.deserialize(JSON.parse(v));
+          // const data = distribution.util.deserialize(JSON.parse(v));
+          const data = JSON.parse(v);
           const keys = Object.keys(data);
           if(!keys.includes(word)) resolve([]);
 

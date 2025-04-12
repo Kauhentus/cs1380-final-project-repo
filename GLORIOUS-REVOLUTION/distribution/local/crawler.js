@@ -1,5 +1,6 @@
 // distribution/local/crawler.js
 const fs = require('fs');
+const fsp = require('fs/promises');
 const path = require('path');
 const parse = require('node-html-parser').parse;
 
@@ -58,7 +59,7 @@ function initialize(callback) {
     fs.writeFileSync(metrics_file_path, JSON.stringify([metrics], null, 2));
   }
 
-  metricsInterval = setInterval(() => {
+  metricsInterval = setInterval(async () => {
     metrics.time_since_previous = Date.now() - metrics.current_time;
     metrics.current_time = Date.now();
     const memUsage = process.memoryUsage();
@@ -70,7 +71,7 @@ function initialize(callback) {
 
     const old_metrics = JSON.parse(fs.readFileSync(metrics_file_path).toString());
     old_metrics.push(metrics);
-    fs.writeFileSync(metrics_file_path, JSON.stringify(old_metrics, null, 2));
+    fsp.writeFile(metrics_file_path, JSON.stringify(old_metrics, null, 2));
 
     metrics.processing_times = [];
   }, 60000);
@@ -234,6 +235,7 @@ function crawl_one(callback) {
               title[0] = title[0].toLocaleUpperCase();
               description = '';
             }
+            description = description.replace(/[\u0000-\u001F]/g, ' ');
 
             const species_data = {
               hierarchy: hierarchy,
