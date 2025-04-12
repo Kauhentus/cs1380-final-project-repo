@@ -41,15 +41,7 @@ const crawler = function (config) {
                 { service: 'crawler', method: 'save_maps_to_disk' },
                 callback
             );
-        },
-
-        cleanup: (name, node, callback) => {
-            distribution[context.gid].comm.send(
-                [name, node],
-                { service: 'crawler', method: 'cleanup' },
-                callback
-            );
-        },
+        }
     };
 };
 

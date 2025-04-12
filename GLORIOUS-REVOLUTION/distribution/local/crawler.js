@@ -25,34 +25,54 @@ function initialize(callback) {
   if (!fs.existsSync(crawlerDir)) fs.mkdirSync(crawlerDir, { recursive: true });
   if (!fs.existsSync(metricsDir)) fs.mkdirSync(metricsDir, { recursive: true });
   if (!fs.existsSync(loggingDir)) fs.mkdirSync(loggingDir, { recursive: true });
-  const metrics_file_path = path.join(metricsDir, `metrics-${global.nodeConfig.port}.json`);
+  const metrics_file_path = path.join(metricsDir, `metrics-crawler-${global.nodeConfig.port}.json`);
   global.logging_path = path.join(loggingDir, `LOG-${global.nodeConfig.port}.txt`);
   fs.writeFileSync(global.logging_path, `LOGGING STARTED ${new Date()}\n`);
   fs.writeFileSync(global.logging_path, `CRAWLER INITIALIZING... ${new Date()}\n`);
 
   metrics = {
     crawling: {
-      pagesProcessed: 0,
       totalCrawlTime: 0,
+      pagesProcessed: 0,
       bytesDownloaded: 0,
+      bytesTransferred: 0,
       termsExtracted: 0,
-      avgProcessingTime: 0,
       targetsHit: 0
     },
+
     memory: {
-      peaks: [],
-      averages: []
+      timestamp: Date.now(),
+      heapUsed: 0,
+      heapTotal: 0
     },
-    startTime: Date.now()
+
+    processing_times: [],
+    current_time: Date.now(),
+    time_since_previous: 0,
   };
+
+  if (fs.existsSync(metrics_file_path)) {
+    const old_metrics = JSON.parse(fs.readFileSync(metrics_file_path).toString());
+    metrics = old_metrics.at(-1);
+  } else {
+    fs.writeFileSync(metrics_file_path, JSON.stringify([metrics], null, 2));
+  }
+
   metricsInterval = setInterval(() => {
+    metrics.time_since_previous = Date.now() - metrics.current_time;
+    metrics.current_time = Date.now();
     const memUsage = process.memoryUsage();
-    metrics.memory.peaks.push({
+    metrics.memory = {
       timestamp: Date.now(),
       heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
       heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024)
-    });
-    fs.writeFileSync(metrics_file_path, JSON.stringify(metrics, null, 2));
+    };
+
+    const old_metrics = JSON.parse(fs.readFileSync(metrics_file_path).toString());
+    old_metrics.push(metrics);
+    fs.writeFileSync(metrics_file_path, JSON.stringify(old_metrics, null, 2));
+
+    metrics.processing_times = [];
   }, 60000);
 
   const links_to_crawl_map = new Map();
@@ -73,7 +93,7 @@ function initialize(callback) {
           if(e1 && e2) {
             distribution.local.store.put('', 'links_to_crawl', (e, v) => {
               distribution.local.store.put('', 'crawled_links', (e, v) => {
-                fs.appendFileSync(global.logging_path, `CREATED MAPS ${e} ${v}\n`);
+                fs.appendFileSync(global.logging_path, `CREATED CRAWLER MAPS ${e} ${v}\n`);
               });
             });
           }
@@ -240,13 +260,14 @@ function crawl_one(callback) {
           }
         })
         .catch((error) => {
-          console.error(`ERROS: fetching ${url}:`, error);
+          console.error(`ERROR: fetching ${url}:`, error);
           crawled_links_map.set(url, true);
 
           const crawlEndTime = Date.now();
           const crawlDuration = crawlEndTime - crawlStartTime;
-          metrics.crawling.pagesProcessed++;
+          metrics.crawling.pagesProcessed += 1;
           metrics.crawling.totalCrawlTime += crawlDuration;
+          metrics.processing_times.push(indexing_time);
 
           callback(null, {
             status: 'error',
@@ -260,6 +281,7 @@ function crawl_one(callback) {
 }
 
 function processCrawlResult(url, links_on_page, result, crawlStartTime, is_target_class, callback) {
+
   distribution.local.mem.get('crawled_links_map', (e, crawled_links_map) => {
     crawled_links_map.set(url, true);
 
@@ -300,13 +322,9 @@ function processCrawlResult(url, links_on_page, result, crawlStartTime, is_targe
       function finishCrawl() {
         const crawlEndTime = Date.now();
         const crawlDuration = crawlEndTime - crawlStartTime;
-        metrics.crawling.pagesProcessed++;
+        metrics.crawling.pagesProcessed += 1;
         metrics.crawling.totalCrawlTime += crawlDuration;
-        metrics.crawling.avgProcessingTime =
-          metrics.crawling.totalCrawlTime / metrics.crawling.pagesProcessed;
-
-        result.duration_ms = crawlDuration;
-        result.new_links_added = total;
+        metrics.processing_times.push(crawlDuration);
 
         callback(null, result);
       }
@@ -352,37 +370,10 @@ function save_maps_to_disk(callback) {
   });
 }
 
-function cleanup(callback) {
-  callback = callback || cb;
-
-  if (metricsInterval) {
-    clearInterval(metricsInterval);
-    metricsInterval = null;
-  }
-
-  const metrics_file_path = path.join('crawler-files', 'metrics', `metrics-${global.nodeConfig.port}.json`);
-
-  if (metrics) {
-    metrics.endTime = Date.now();
-    metrics.totalRuntime = (metrics.endTime - metrics.startTime) / 1000;
-
-    fs.writeFileSync(metrics_file_path, JSON.stringify(metrics, null, 2));
-  }
-
-  save_maps_to_disk((err, result) => {
-    callback(null, {
-      status: 'success',
-      metrics: metrics,
-      saved_data: result
-    });
-  });
-}
-
 module.exports = {
   initialize,
   add_link_to_crawl,
   crawl_one,
   get_stats,
-  save_maps_to_disk,
-  cleanup
+  save_maps_to_disk
 };

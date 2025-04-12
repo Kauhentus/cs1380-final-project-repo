@@ -68,7 +68,7 @@ distribution.node.start(async (server) => {
     });
     await run_remote('crawler_group', { gid: 'local', service: 'crawler', method: 'initialize'});
     await run_remote('indexer_group', { gid: 'local', service: 'indexer', method: 'initialize'});
-    await run_remote('indexer_ranged_group', { gid: 'local', service: 'indexer', method: 'initialize'});
+    await run_remote('indexer_ranged_group', { gid: 'local', service: 'indexer_ranged', method: 'initialize'});
     await run_remote('querier_group', { gid: 'local', service: 'querier', method: 'initialize'});
     console.log("GROUPS INITIALIZED");
 
@@ -87,7 +87,9 @@ distribution.node.start(async (server) => {
         });
     });
 
-    for(let i = 0; i < 10; i++){
+    for(let i = 0; i < 1000; i++){
+        if(i % 10 == 0) console.log(i);
+        
         await new Promise((resolve, reject) => {
             const remote = { gid: 'local', service: 'crawler', method: 'crawl_one'}
             distribution.crawler_group.comm.send([], remote, (e, v) => {

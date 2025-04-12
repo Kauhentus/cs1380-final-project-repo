@@ -1,5 +1,6 @@
 // distribution/local/indexer.js
 const fs = require('fs');
+const path = require('path');
 
 const cb = (e, v) => {
   if (e) {
@@ -9,28 +10,55 @@ const cb = (e, v) => {
   }
 };
 
+let metrics = null;
+let metricsInterval = null;
 const log_index = false;
-
-const indexerMetrics = {
-  documentsIndexed: 0,
-  totalIndexTime: 0,
-  totalTermsProcessed: 0,
-  totalPrefixesProcessed: 0,
-  batchesSent: 0,
-  nodeDistribution: {},
-  processingTimes: [],
-  errors: 0,
-  startTime: Date.now()
-};
 
 function initialize(callback) {
   callback = callback || cb;
   const distribution = require('../../config');
   fs.appendFileSync(global.logging_path, `INDEXER INITIALIZING... ${new Date()}\n`);
 
+  const crawlerDir = path.join('crawler-files');
+  const metricsDir = path.join(crawlerDir, 'metrics');
+  if (!fs.existsSync(crawlerDir)) fs.mkdirSync(crawlerDir, { recursive: true });
+  if (!fs.existsSync(metricsDir)) fs.mkdirSync(metricsDir, { recursive: true });
+  const metrics_file_path = path.join(metricsDir, `metrics-indexer-${global.nodeConfig.port}.json`);
+
+  metrics = {
+    totalIndexTime: 0,
+    documentsIndexed: 0,
+    totalTermsProcessed: 0,
+    totalPrefixesProcessed: 0,
+    batchesSent: 0,
+    errors: 0,
+
+    processing_times: [],
+    current_time: Date.now(),
+    time_since_previous: 0,
+  };
+
+  if (fs.existsSync(metrics_file_path)) {
+    const old_metrics = JSON.parse(fs.readFileSync(metrics_file_path).toString());
+    metrics = old_metrics.at(-1);
+  } else {
+    fs.writeFileSync(metrics_file_path, JSON.stringify([metrics], null, 2));
+  }
+
+  metricsInterval = setInterval(() => {
+    metrics.time_since_previous = Date.now() - metrics.current_time;
+    metrics.current_time = Date.now();
+
+    const old_metrics = JSON.parse(fs.readFileSync(metrics_file_path).toString());
+    old_metrics.push(metrics);
+    fs.writeFileSync(metrics_file_path, JSON.stringify(old_metrics, null, 2));
+
+    metrics.processing_times = [];
+  }, 60000);
+
   const links_to_index_map = new Map();
   const indexed_links_map = new Map();
-
+  
   distribution.local.mem.put(links_to_index_map, 'links_to_index_map', (e, v) => {
     distribution.local.mem.put(indexed_links_map, 'indexed_links_map', (e, v) => {
 
@@ -47,7 +75,7 @@ function initialize(callback) {
           if(e1 && e2) {
             distribution.local.store.put('', 'links_to_index', (e, v) => {
               distribution.local.store.put('', 'indexed_links', (e, v) => {
-                fs.appendFileSync(global.logging_path, `CREATED MAPS ${e} ${v}\n`);
+                fs.appendFileSync(global.logging_path, `CREATED INDEX MAPS ${e} ${v}\n`);
               });
             });
           }
@@ -82,15 +110,7 @@ function add_link_to_index(link, callback) {
 
 function index_one(callback) {
   callback = callback || cb;
-
-  const metrics = {
-    processingStartTime: Date.now(),
-    totalTerms: 0,
-    totalPrefixes: 0,
-    prefixBatchSizes: [],
-    nodeBatchTimes: new Map()
-  };
-  const indexStartTime = Date.now();
+  const index_start_time = Date.now();
 
   const COMMON_PREFIXES = new Set([
     'th', 'an', 'co', 're', 'in', 'de', 'pr', 'st', 'en', 'tr', 'di', 'ch', 'pe'
@@ -112,11 +132,13 @@ function index_one(callback) {
   }
 
   const fs = require('fs');
-  // fs.appendFileSync(global.logging_path, `INDEXING ONE...\n`);
+  fs.appendFileSync(global.logging_path, `INDEXING ONE...\n`);
 
   distribution.local.mem.get('links_to_index_map', (e1, links_to_index_map) => {
     distribution.local.mem.get('indexed_links_map', (e2, indexed_links_map) => {
-
+      // ####################################
+      // 0. DECIDE ON LINK TO INDEX
+      // ####################################
       if (links_to_index_map.size === 0) {
         fs.appendFileSync(global.logging_path, `INDEXER SKIPPED\n`);
         return callback(null, { status: 'skipped', reason: 'no_links' });
@@ -141,7 +163,6 @@ function index_one(callback) {
         const docId = document.url;
         const wordCounts = document.word_counts ? new Map(Object.entries(document.word_counts)) : new Map();
         const totalWords = wordCounts.size;
-        metrics.totalTerms = totalWords;
 
         const hierarchy = document.hierarchy || [];
         const binomialName = document.binomial_name || '';
@@ -169,7 +190,6 @@ function index_one(callback) {
             prefixGroups.get(prefix).set(word, count);
           }
           
-          metrics.totalPrefixes = prefixGroups.size;
           for (const [prefix, terms] of prefixGroups) {
             const chosenNode = getChosenNode(prefix, nids, nodes);
             if (!nodeToPrefix.has(chosenNode)) {
@@ -190,19 +210,11 @@ function index_one(callback) {
             if (prefixes.size > 0) totalBatches++;
           }
           if (totalBatches === 0) {
-            metrics.processingEndTime = Date.now();
             return callback(null, {
               status: 'success',
-              docId: docId,
-              metrics: {
-                totalTerms: metrics.totalTerms,
-                totalPrefixes: metrics.totalPrefixes,
-                processingTime: metrics.processingEndTime - metrics.processingStartTime,
-                batchesSent: 0
-              }
+              docId: docId
             });
           }
-
 
           // ####################################
           // 4. CREATE BATCHES
@@ -213,13 +225,6 @@ function index_one(callback) {
           for (const [node, prefixes] of nodeToPrefix) {
             const nodeId = distribution.util.id.getNID(node);
             const nodePrefixBatches = [];
-            if (!metrics.nodeBatchTimes.has(nodeId)) {
-              metrics.nodeBatchTimes.set(nodeId, {
-                batchCount: 0,
-                totalTime: 0,
-                termCount: 0
-              });
-            }
             
             let nodeTermCount = 0;
             for (const [prefix, terms] of prefixes) {
@@ -276,7 +281,6 @@ function index_one(callback) {
                 data: prefixData
               });
             }
-            metrics.nodeBatchTimes.get(nodeId).termCount = nodeTermCount;
             
             node_prefix_pairs.push([node, nodeId, prefixes]);
             bulk_batches_to_send.push(nodePrefixBatches);
@@ -288,25 +292,20 @@ function index_one(callback) {
           // ####################################
 
           let success = true;
+          let total_batches_sent = 0;
           for(let i = 0; i < nodeToPrefix.size; i++) {
             const [node, nodeId, prefixes] = node_prefix_pairs[i];
             const nodePrefixBatches = bulk_batches_to_send[i];
             if(nodePrefixBatches.length === 0) continue;
 
             if(log_index) console.log(`Sending batch with ${nodePrefixBatches.length} prefixes to node ${nodeId} ${global.nodeConfig.port}`);
-            metrics.prefixBatchSizes.push(nodePrefixBatches.length);
-            const batchStartTime = Date.now();
-          
             await new Promise((resolve, reject) => {
               distribution.local.comm.send(
-                [{ prefixBatches: nodePrefixBatches, gid: 'index' }], 
+                [{ prefixBatches: nodePrefixBatches, gid: 'indexer_group' }], 
                 { service: "store", method: "bulk_append", node: node }, 
                 (err, val) => {
                   if(err) success = false;
-                  const batchEndTime = Date.now();
-                  const batchTime = batchEndTime - batchStartTime;
-                  metrics.nodeBatchTimes.get(nodeId).batchCount++;
-                  metrics.nodeBatchTimes.get(nodeId).totalTime += batchTime;
+                  total_batches_sent += 1;
                   resolve();
                 }
               )
@@ -325,52 +324,21 @@ function index_one(callback) {
             if(log_index) console.log("Forcing garbage collection");
             global.gc();
           }
-          metrics.processingEndTime = Date.now();
           
           // Log performance metrics
-          const totalProcessingTime = metrics.processingEndTime - metrics.processingStartTime;
-          if(log_index) console.log(`Total processing time: ${totalProcessingTime}ms`);
-          if(log_index) console.log(`Total terms processed: ${metrics.totalTerms}`);
-          if(log_index) console.log(`Total prefixes: ${metrics.totalPrefixes}`);
-          
-          if (metrics.prefixBatchSizes.length > 0) {
-            const avgBatchSize = metrics.prefixBatchSizes.reduce((sum, size) => sum + size, 0) / metrics.prefixBatchSizes.length;
-            if(log_index) console.log(`Average batch size: ${avgBatchSize.toFixed(2)} prefixes`);
-          }
-          let totalBatchCount = 0;
-          let totalBatchTime = 0;
-          for (const [nodeId, stats] of metrics.nodeBatchTimes) {
-            totalBatchCount += stats.batchCount;
-            totalBatchTime += stats.totalTime;
-            if (stats.batchCount > 0) {
-              const avgNodeBatchTime = stats.totalTime / stats.batchCount;
-              if(log_index) console.log(`Node ${nodeId}: ${stats.batchCount} batches, avg ${avgNodeBatchTime.toFixed(2)}ms, ${stats.termCount} terms`);
-            }
-          }
-          if (totalBatchCount > 0) {
-            const avgBatchTime = totalBatchTime / totalBatchCount;
-            if(log_index) console.log(`Overall average batch time: ${avgBatchTime.toFixed(2)}ms`);
-          }
+          let indexing_time = Date.now() - index_start_time;
+          metrics.documentsIndexed += 1;
+          metrics.totalIndexTime += indexing_time;
+          metrics.totalTermsProcessed += totalWords || 0;
+          metrics.totalPrefixesProcessed += prefixGroups.size || 0;
+          metrics.batchesSent += totalBatches || 0;
+          metrics.processing_times.push(indexing_time);
 
-          const indexingTime = Date.now() - indexStartTime;
-          indexerMetrics.documentsIndexed++;
-          indexerMetrics.totalIndexTime += indexingTime;
-          indexerMetrics.totalTermsProcessed += metrics.totalTerms || 0;
-          indexerMetrics.totalPrefixesProcessed += metrics.totalPrefixes || 0;
-          indexerMetrics.batchesSent += totalBatchCount || 0;
-          indexerMetrics.processingTimes.push(indexingTime);
-          if (indexerMetrics.processingTimes.length > 20) indexerMetrics.processingTimes.shift();
-          if (!success) indexerMetrics.errors++;
+          if(!success) metrics.errors += 1;
 
           callback(null, {
             status: success ? 'success' : 'partial_success',
-            docId: docId,
-            metrics: {
-              totalTerms: metrics.totalTerms,
-              totalPrefixes: metrics.totalPrefixes,
-              processingTime: totalProcessingTime,
-              batchesSent: totalBatchCount
-            }
+            docId: docId
           });
         });
       });
