@@ -89,9 +89,10 @@ distribution["all"].crawler = require("./distribution/all/crawler.js")({
 distribution["all"].indexer = require("./distribution/all/indexer.js")({
   gid: "all",
 });
-distribution["all"].indexer_ranged = require("./distribution/all/indexer_ranged.js")({
-  gid: "all",
-});
+distribution["all"].indexer_ranged =
+  require("./distribution/all/indexer_ranged.js")({
+    gid: "all",
+  });
 distribution["all"].querier = require("./distribution/all/querier.js")({
   gid: "all",
 });
