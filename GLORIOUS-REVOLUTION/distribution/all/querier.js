@@ -26,18 +26,14 @@ const querier = function (config) {
                         .filter(result => Array.isArray(result))
                         .flat();
 
-                    // console.log(query_words);
-                    // const fs= require('fs');
-                    // fs.appendFileSync('TEMP.json', `${JSON.stringify(data, null, 2)}\n`);
-
                     const all_docs_query_tf_idf = {};
                     data.map(posting => {
-                        const docId = posting.docId;
+                        const docId = posting.pageInfo.binomialName;
                         if(all_docs_query_tf_idf[docId] === undefined) all_docs_query_tf_idf[docId] = {};
-
-                        const current_word = posting.word;
+                        const current_word = posting.query_word;
                         all_docs_query_tf_idf[docId][current_word] = posting;
                     });
+                    const final_collation = [];
                     Object.keys(all_docs_query_tf_idf).map(key => {
                         const this_doc_query_tf_idf = all_docs_query_tf_idf[key];
                         const queries_on_doc = Object.keys(this_doc_query_tf_idf);
@@ -45,6 +41,9 @@ const querier = function (config) {
                         missing_queries.map(query_word => {
                             this_doc_query_tf_idf[query_word] = {
                                 docId: key,
+                                pageInfo: {
+                                    binomialName: this_doc_query_tf_idf[queries_on_doc[0]].pageInfo.binomialName,
+                                },
                                 tf: 0.0000001,
                                 ranking: {
                                   tf: 0.0000001,
@@ -54,8 +53,8 @@ const querier = function (config) {
                                 query_word: query_word
                             };
                         });
+                        Object.values(this_doc_query_tf_idf).map(posting => final_collation.push(posting));
                     });
-                    console.log(all_docs_query_tf_idf);
 
                     const combine_by_binomial_name = (results) => {
                         const acc = results.reduce((map, item) => {
@@ -63,17 +62,16 @@ const querier = function (config) {
                             if (!map[key]) {
                                 map[key] = { ...item, ranking: { ...item.ranking }};
                             } else {
-                                map[key].tf += item.tf;
-                                map[key].tf_idf += item.tf_idf;
-                                map[key].ranking.tf += item.ranking.tf;
-                                map[key].ranking.score += item.ranking.score;
+                                map[key].tf *= item.tf;
+                                map[key].tf_idf *= item.tf_idf;
+                                map[key].ranking.tf *= item.ranking.tf;
+                                map[key].ranking.score *= item.ranking.score;
                             }
                             return map;
                         }, {});
                         return Object.values(acc);
                     }
-                          
-                    const results = combine_by_binomial_name(data)
+                    const results = combine_by_binomial_name(final_collation)
                         .sort((a, b) => b.tf_idf - a.tf_idf);
                         
                     results.map(result => result.tf_idf = +result.tf_idf.toPrecision(4));
