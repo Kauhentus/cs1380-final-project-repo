@@ -87,9 +87,20 @@ distribution.node.start(async (server) => {
         });
     });
 
-    for(let i = 0; i < 1000; i++){
+    // await new Promise((resolve, reject) => {
+    //     distribution.querier_group.querier.query_one('leafy cultivation', (e, v) => {
+    //         const results = v.map(result => ({
+    //             binomialName: result.pageInfo.binomialName,
+    //             tf_idf: result.tf_idf,
+    //         }));
+    //         console.log(e, results);
+    //         resolve();
+    //     });
+    // });
+
+    for(let i = 0; i < 500; i++){
         if(i % 10 == 0) console.log(i);
-        
+
         await new Promise((resolve, reject) => {
             const remote = { gid: 'local', service: 'crawler', method: 'crawl_one'}
             distribution.crawler_group.comm.send([], remote, (e, v) => {

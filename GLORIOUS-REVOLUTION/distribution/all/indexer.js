@@ -25,6 +25,14 @@ const indexer = function (config) {
                 { service: 'indexer', method: 'index_one' },
                 callback
             );
+        },       
+        
+        get_idf_doc_count: (callback) => {
+            distribution[context.gid].comm.send(
+                [],
+                { service: 'indexer', method: 'get_idf_doc_count' },
+                callback
+            );
         },
 
         save_maps_to_disk: (name, node, callback) => {

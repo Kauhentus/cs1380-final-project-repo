@@ -346,6 +346,14 @@ function index_one(callback) {
   });
 }
 
+function get_idf_doc_count(callback) {
+  callback = callback || cb;
+  const fs = require('fs');
+  const nid = distribution.util.id.getNID(global.nodeConfig);
+  const num_docs_on_node = fs.readdirSync(`store/${nid}/crawler_group`).length;
+  callback(null, { num_docs_on_node: num_docs_on_node });
+}
+
 function save_maps_to_disk(callback) {
   callback = callback || cb;
 
@@ -370,6 +378,7 @@ function save_maps_to_disk(callback) {
 module.exports = {
   initialize,
   add_link_to_index,
+  get_idf_doc_count,
   save_maps_to_disk,
   index_one
 };

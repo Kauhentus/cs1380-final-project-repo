@@ -9,7 +9,7 @@ const path = require('path');
 const base_path = path.join(__dirname, '../../store');
 
 function sanitizeKey(key) {
-  return String(key).replace(/[^a-zA-Z0-9_-]/g, '_');
+  return String(key).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
 }
 
 function put(state, configuration, callback) {
@@ -24,9 +24,9 @@ function put(state, configuration, callback) {
   if(configuration === null){
     file_key = id.getID(state);
   } else if(typeof configuration === "string"){
-    file_key = configuration.replace(/[^a-zA-Z0-9_-]/g, '_')
+    file_key = configuration.replace(/[^a-zA-Z0-9_\-\.]/g, '_')
   } else if(typeof configuration === "object" && "key" in configuration){
-    file_key = configuration.key.replace(/[^a-zA-Z0-9_-]/g, '_');
+    file_key = configuration.key.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
   }
   
   let is_group_put = typeof configuration === "object" && "key" in configuration && "gid" in configuration;
@@ -60,9 +60,9 @@ function get(configuration, callback) {
   
   let file_key;
   if(typeof configuration === "string"){
-    file_key = configuration.replace(/[^a-zA-Z0-9_-]/g, '_')
+    file_key = configuration.replace(/[^a-zA-Z0-9_\-\.]/g, '_')
   } else if(typeof configuration === "object" && "key" in configuration){
-    file_key = configuration.key.replace(/[^a-zA-Z0-9_-]/g, '_');
+    file_key = configuration.key.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
   }
   let is_group_put = typeof configuration === "object" && "key" in configuration && "gid" in configuration;
   let gid_folder = is_group_put ? configuration.gid : 'all';
@@ -87,9 +87,9 @@ function del(configuration, callback) {
 
   let file_key;
   if(typeof configuration === "object" && "key" in configuration && "gid" in configuration){
-    file_key = `${configuration.gid}-${configuration.key.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    file_key = `${configuration.gid}-${configuration.key.replace(/[^a-zA-Z0-9_\-\.]/g, '_')}`;
   } else {
-    file_key = configuration.replace(/[^a-zA-Z0-9_-]/g, '_')
+    file_key = configuration.replace(/[^a-zA-Z0-9_\-\.]/g, '_')
   }
   const file_path = path.join(node_store_path, file_key);
 
@@ -216,4 +216,21 @@ function bulk_append(data, callback) {
   }
 }
 
-module.exports = {put, get, del, bulk_append};
+function read_bulk(configuration, callback) {
+  const util = distribution.util;
+  const id = util.id;
+  const nid = id.getNID(global.nodeConfig);
+  const node_store_path = path.join(base_path, nid);
+
+  if(!("key" in configuration) || !("gid" in configuration)) throw Error("bulk read requires key and gid");
+
+  let file_key = configuration.key.replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+  let is_group_put = typeof configuration === "object" && "key" in configuration && "gid" in configuration;
+  let gid_folder = is_group_put ? configuration.gid : 'all';
+  let file_path = path.join(node_store_path, gid_folder, file_key);
+
+  const data = fs.readFileSync(file_path).toString();
+  callback(null, data);
+}
+
+module.exports = {put, get, del, bulk_append, read_bulk};
