@@ -1,7 +1,5 @@
 // distribution/local/indexer-ranged.js
 const fs = require('fs');
-const path = require('path');
-const parse = require('node-html-parser').parse;
 
 const cb = (e, v) => {
   if (e) {
@@ -24,7 +22,8 @@ function initialize(callback) {
 
       distribution.local.store.get('links_to_range_index', (e1, v1) => {
         distribution.local.store.get('range_indexed_links', (e2, v2) => {
-          if (!e1 && !e2 && v1 && v2) {
+
+          if (!e1 && !e2 && typeof v1 === 'string' && typeof v2 === 'string') {
             const saved_links_to_range_index = v1.split('\n').filter(s => s.length > 0);
             const saved_range_indexed_links = v2.split('\n').filter(s => s.length > 0);
             saved_links_to_range_index.map(link => links_to_range_index_map.set(link, true));
@@ -51,6 +50,14 @@ function initialize(callback) {
   });
 }
 
+function index_one(callback) {
+  callback = callback || cb;
+
+  const fs = require('fs');
+  fs.appendFileSync(global.logging_path, `RANGE INDEXING ONE (TODO)...\n`);
+
+  callback();
+}
 
 function add_link_to_index(link, callback) {
   callback = callback || cb;
@@ -91,4 +98,5 @@ module.exports = {
   initialize,
   add_link_to_index,
   save_maps_to_disk,
+  index_one
 };

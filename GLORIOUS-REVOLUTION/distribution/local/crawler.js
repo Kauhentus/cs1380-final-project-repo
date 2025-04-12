@@ -112,7 +112,7 @@ function crawl_one(callback) {
   const crawlStartTime = Date.now();
 
   const fs = require('fs');
-  fs.appendFileSync(global.logging_path, `CRAWLING ONE...\n`);
+  // fs.appendFileSync(global.logging_path, `CRAWLING ONE...\n`);
 
   distribution.local.mem.get('links_to_crawl_map', (e1, links_to_crawl_map) => {
     distribution.local.mem.get('crawled_links_map', (e2, crawled_links_map) => {
@@ -121,7 +121,7 @@ function crawl_one(callback) {
       links_to_crawl_map.delete(url);
       if (crawled_links_map.has(url)) return callback(null, { status: 'skipped', reason: 'already_crawled' });
 
-      // fs.appendFileSync(global.logging_path, `   Selected ${url}\n`);
+      fs.appendFileSync(global.logging_path, `CRAWLING ONE: ${url}\n`);
 
       fetch(`https://en.wikipedia.org${url}`)
         .then((response) => {
@@ -201,8 +201,7 @@ function crawl_one(callback) {
             metrics.crawling.targetsHit += 1;
 
             processCrawlResult(url, links_on_page, result, crawlStartTime, is_target_class, () => {
-              fs.appendFileSync(global.logging_path, `   CRAWL FOUND TARGET PAGE\n`);
-
+              // fs.appendFileSync(global.logging_path, `   CRAWL FOUND TARGET PAGE\n`);
               distribution.crawler_group.store.put(species_data, url, (e, v) => {
 
                 distribution.local.groups.get('crawler_group', (e, v) => {
@@ -219,10 +218,12 @@ function crawl_one(callback) {
                   const num_nodes = nodes.length;
 
                   const get_nx = (link) => nodes[parseInt(distribution.util.id.getID(link).slice(0, 8), 16) % num_nodes];
-                  const remote = { node: get_nx(url), service: 'indexer', method: 'add_link_to_index' };
-
-                  distribution.local.comm.send([url], remote, (e, v) => {
-                    callback();
+                  const remote_1 = { node: get_nx(url), service: 'indexer', method: 'add_link_to_index' };
+                  const remote_2 = { node: get_nx(url), service: 'indexer_ranged', method: 'add_link_to_index' };
+                  distribution.local.comm.send([url], remote_1, (e, v) => {
+                    distribution.local.comm.send([url], remote_2, (e, v) => {
+                      callback();
+                    });
                   });
 
                 });

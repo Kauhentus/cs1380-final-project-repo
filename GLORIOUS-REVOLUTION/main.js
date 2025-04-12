@@ -98,7 +98,13 @@ distribution.node.start(async (server) => {
         await new Promise((resolve, reject) => {
             const remote = { gid: 'local', service: 'indexer', method: 'index_one'}
             distribution.indexer_group.comm.send([], remote, (e, v) => {
-                console.log("INDEX", e, v)
+                resolve();
+            });
+        });
+
+        await new Promise((resolve, reject) => {
+            const remote = { gid: 'local', service: 'indexer_ranged', method: 'index_one'}
+            distribution.indexer_ranged_group.comm.send([], remote, (e, v) => {
                 resolve();
             });
         });

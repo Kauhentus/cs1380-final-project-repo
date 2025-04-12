@@ -8,6 +8,10 @@ const fs = require('fs');
 const path = require('path');
 const base_path = path.join(__dirname, '../../store');
 
+function sanitizeKey(key) {
+  return String(key).replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 function put(state, configuration, callback) {
   const util = distribution.util;
   const id = util.id;
@@ -111,4 +115,105 @@ function del(configuration, callback) {
   });
 }
 
-module.exports = {put, get, del};
+function bulk_append(data, callback) {
+  const prefixBatches = data.prefixBatches || [];
+  const gid = data.gid || 'index';
+  
+  const util = distribution.util;
+  const nodeConfig = global.nodeConfig;
+  const nodeID = util.id.getNID(nodeConfig);
+  const groupDir = path.join('store', nodeID, gid);
+  fs.mkdirSync(groupDir, { recursive: true });
+  
+  const results = {};
+  
+  try {
+    // Process each prefix batch
+    for (const batch of prefixBatches) {
+      const prefix = batch.prefix;
+      const prefixData = batch.data;
+      const filePath = path.join(groupDir, sanitizeKey(`prefix-${prefix}`) + '.json');
+      
+      // Read existing data for this prefix
+      let existingData = {};
+      if (fs.existsSync(filePath)) {
+        try {
+          const fileContent = fs.readFileSync(filePath, 'utf8');
+          const parsed = JSON.parse(fileContent);
+          existingData = util.deserialize(parsed);
+        } catch (error) {
+          console.error(`Error reading prefix data for ${prefix}: ${error.message}`);
+        }
+      }
+      
+      // Merge new data with existing data - ENHANCED ALGORITHM
+      for (const term in prefixData) {
+        // If term doesn't exist yet in our index, initialize it
+        if (!existingData[term]) {
+          existingData[term] = {
+            df: 0, // Will be incremented below
+            postings: {}
+          };
+        }
+        
+        // Process each document containing this term
+        for (const docEntry of prefixData[term]) {
+          const docId = docEntry.url;
+          
+          // Only increment df if this document wasn't already counted
+          if (!existingData[term].postings[docId]) {
+            existingData[term].df += 1;
+          }
+          
+          // Create or update posting for this document with all enhanced data
+          existingData[term].postings[docId] = {
+            // Basic term frequency
+            tf: docEntry.tf,
+            
+            // Enhanced ranking factors if available
+            ranking: docEntry.ranking || {
+              tf: docEntry.tf,
+              taxonomyBoost: 1.0,
+              binomialBoost: 1.0,
+              positionBoost: 1.0,
+              score: docEntry.tf // Default to tf if score not calculated
+            },
+            
+            // Taxonomy information if available
+            taxonomyLevel: docEntry.taxonomyLevel || null,
+            isBinomial: docEntry.isBinomial || false,
+            
+            // Page metadata if available
+            pageInfo: docEntry.pageInfo || {},
+            
+            // Always update timestamp
+            timestamp: Date.now()
+          };
+        }
+      }
+      
+      // Write the updated data back
+      const serialized = util.serialize(existingData);
+      fs.writeFileSync(filePath, JSON.stringify(serialized));
+      
+      // Return basic metrics about the operation
+      results[prefix] = { 
+        termsProcessed: Object.keys(prefixData).length,
+        totalTermsStored: Object.keys(existingData).length
+      };
+    }
+    
+    // Return overall operation results
+    callback(null, {
+      status: 'success',
+      processingTime: Date.now(), // For timing reference
+      results: results,
+      totalPrefixesProcessed: prefixBatches.length
+    });
+  } catch (error) {
+    console.error("Error in bulk_append:", error);
+    callback(error, null);
+  }
+}
+
+module.exports = {put, get, del, bulk_append};
