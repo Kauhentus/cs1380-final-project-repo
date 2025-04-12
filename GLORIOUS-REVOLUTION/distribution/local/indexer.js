@@ -1,6 +1,7 @@
 // distribution/local/indexer.js
 const fs = require('fs');
 const fsp = require('fs/promises');
+const lf = require('proper-lockfile');
 const path = require('path');
 
 const cb = (e, v) => {
@@ -199,6 +200,8 @@ function index_one(callback) {
             nodeToPrefix.get(chosenNode).set(prefix, terms);
           }
 
+          const timecheck_1 = Date.now();
+
           // fs.appendFileSync(global.logging_path, `   Indexer prefix groups: ${JSON.stringify(Object.fromEntries(prefixGroups))}\n`);
           // fs.appendFileSync(global.logging_path, `   Indexer node to prefix: ${JSON.stringify(Object.fromEntries(nodeToPrefix))}\n`);          
 
@@ -288,30 +291,39 @@ function index_one(callback) {
           }
           if(bulk_batches_to_send.length !== nodeToPrefix.size) throw Error("RAH");
 
+          const timecheck_2 = Date.now();
+
           // ####################################
           // 5. SEND BATCHES TO NODES
           // ####################################
 
           let success = true;
           let total_batches_sent = 0;
+          let time_steps = [];
+          let run_batch_promises = [];
+
           for(let i = 0; i < nodeToPrefix.size; i++) {
             const [node, nodeId, prefixes] = node_prefix_pairs[i];
             const nodePrefixBatches = bulk_batches_to_send[i];
             if(nodePrefixBatches.length === 0) continue;
 
-            if(log_index) console.log(`Sending batch with ${nodePrefixBatches.length} prefixes to node ${nodeId} ${global.nodeConfig.port}`);
-            await new Promise((resolve, reject) => {
+            run_batch_promises.push(new Promise((resolve, reject) => {
+              const temp_time = Date.now();
+              if(log_index) console.log(`Sending batch with ${nodePrefixBatches.length} prefixes to node ${nodeId} ${global.nodeConfig.port}`);
               distribution.local.comm.send(
                 [{ prefixBatches: nodePrefixBatches, gid: 'indexer_group' }], 
                 { service: "store", method: "bulk_append", node: node }, 
                 (err, val) => {
                   if(err) success = false;
                   total_batches_sent += 1;
+                  time_steps.push(Date.now() - temp_time);
                   resolve();
                 }
-              )
-            });
+              );
+            }));
           }
+          await Promise.all(run_batch_promises);
+
           fs.appendFileSync(global.logging_path, `   Indexer finished: ${success}\n`);
 
           // ####################################
@@ -325,6 +337,8 @@ function index_one(callback) {
             if(log_index) console.log("Forcing garbage collection");
             global.gc();
           }
+
+          const timecheck_3 = Date.now();
           
           // Log performance metrics
           let indexing_time = Date.now() - index_start_time;
@@ -334,6 +348,11 @@ function index_one(callback) {
           metrics.totalPrefixesProcessed += prefixGroups.size || 0;
           metrics.batchesSent += totalBatches || 0;
           metrics.processing_times.push(indexing_time);
+          console.log(`TOTAL INDEXING TIME: ${indexing_time}ms`);
+          // console.log(`    step 1 : ${timecheck_1 - index_start_time}ms`);
+          // console.log(`    step 2 : ${timecheck_2 - timecheck_1}ms`);
+          // console.log(`    step 3 : ${timecheck_3 - timecheck_2}ms`);
+          // console.log(`           i : ${time_steps}ms`);
 
           if(!success) metrics.errors += 1;
 

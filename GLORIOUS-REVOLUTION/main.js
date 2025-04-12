@@ -110,45 +110,68 @@ distribution.node.start(async (server) => {
     //     });
     // });
 
-    for(let i = 0; i < 10000; i++){
-        if(i % 10 == 0) console.log(i);
+    let max_iter = 1000;
+    let crawl_loop_iters = 0;
+    let index_loop_iters = 0;
 
-        await new Promise((resolve, reject) => {
-            const remote = { gid: 'local', service: 'crawler', method: 'crawl_one'}
-            distribution.crawler_group.comm.send([], remote, (e, v) => {
-                resolve();
-            });
+    const crawl_one = () => new Promise((resolve, reject) => {
+        const remote = { gid: 'local', service: 'crawler', method: 'crawl_one'}
+        distribution.crawler_group.comm.send([], remote, (e, v) => {
+            crawl_loop_iters++;
+            resolve();
         });
+    });
+    const crawl_loop = async () => {
+        try {
+            while (crawl_loop_iters < max_iter) {
+                if(crawl_loop_iters % 10 == 0) console.log(`crawler ${crawl_loop_iters}`);
+                await crawl_one();
+            }
+        } catch (err) {
+            console.error('crawlLoop failed:', err);
+            setTimeout(crawl_loop, 1000);
+        }
+    }
 
-        await new Promise((resolve, reject) => {
+    const index_one = () => new Promise((resolve, reject) => {
+        setTimeout(() => {
             const remote = { gid: 'local', service: 'indexer', method: 'index_one'}
             distribution.indexer_group.comm.send([], remote, (e, v) => {
+                if(Object.values(v).some(data => data.status !== 'skipped')) index_loop_iters++;
                 resolve();
             });
-        });
+        }, 100);
+    });
+    const index_loop = async () => {
+        try {
+            while (index_loop_iters < max_iter) {
+                if(index_loop_iters % 10 == 0) console.log(`indexer ${index_loop_iters}`);
+                await index_one();
+            }
+        } catch (err) {
+            console.error('indexLoop failed:', err);
+            setTimeout(index_loop, 1000);
+        }
+    }
 
-        await new Promise((resolve, reject) => {
-            const remote = { gid: 'local', service: 'indexer_ranged', method: 'index_one'}
-            distribution.indexer_ranged_group.comm.send([], remote, (e, v) => {
-                resolve();
-            });
-        });
+    crawl_loop();
+    index_loop();
 
+    setTimeout(async () => {
         await new Promise((resolve, reject) => {
             const remote = { gid: 'local', service: 'crawler', method: 'save_maps_to_disk'}
             distribution.indexer_group.comm.send([], remote, (e, v) => {
                 resolve();
             });
         });
-
         await new Promise((resolve, reject) => {
             const remote = { gid: 'local', service: 'indexer', method: 'save_maps_to_disk'}
             distribution.indexer_group.comm.send([], remote, (e, v) => {
                 resolve();
             });
         });
-    }
+    }, 30000);
 
-    for(let i = 0; i < num_nodes; i++) await stop_nx(nodes[i]);
-    server.close();
+    // for(let i = 0; i < num_nodes; i++) await stop_nx(nodes[i]);
+    // server.close();
 });

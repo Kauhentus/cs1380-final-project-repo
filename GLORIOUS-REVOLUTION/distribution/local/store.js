@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const fsp = require('fs/promises');
+const lf = require('proper-lockfile')
 const path = require('path');
 const base_path = path.join(__dirname, '../../store');
 
@@ -164,10 +165,19 @@ function bulk_append(data, callback) {
 
         // Read existing data for this prefix
         const filePath = path.join(groupDir, sanitizeKey(`prefix-${prefix}`) + '.json');
+        const file_exists = fs.existsSync(filePath)
         let existingData = {};
-        if (fs.existsSync(filePath)) {
+        if (file_exists) {
           try {
+            // console.log(filePath);
+
             const fileContent = fs.readFileSync(filePath, { encoding: 'utf8' }).toString();
+
+            // let release;
+            // if(file_exists) release = await lf.lock(filePath, { retries: 10 })
+            // const fileContent = await fsp.readFile(filePath, { encoding: 'utf8' });
+            // if(file_exists) await release();
+
             existingData = JSON.parse(fileContent);
           } catch (error) {
             console.error(`Error reading prefix data for ${prefix}: ${error.message}`);
@@ -222,6 +232,12 @@ function bulk_append(data, callback) {
 
         // must be synchronous to prevent multi-thread race conditions on local file system
         fs.writeFileSync(filePath, JSON.stringify(existingData));
+
+        // let release;
+        // if(file_exists) release = await lf.lock(filePath, { retries: 10 })
+        // await fsp.writeFile(filePath, JSON.stringify(existingData));
+        // if(file_exists) await release();
+
         resolve();
       }));
     }

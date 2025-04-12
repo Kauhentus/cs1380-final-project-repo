@@ -23,23 +23,11 @@ const uuidv4 = () => {
 function serialize(thing, seen = new Map(), isRoot = true) {
   let object;
   
-  if (thing === null) {
-    object = { type: "null", value: "null" };
-    
-  } else if (thing === undefined) {
-    object = { type: "undefined", value: "undefined" };
-    
-  } else if (typeof thing === "string") {
+  if (typeof thing === "string") {
     object = { type: "string", value: thing };
     
   } else if (typeof thing === "number") {
     object = { type: "number", value: thing.toString() };
-    
-  } else if (typeof thing === "boolean") {
-    object = { type: "boolean", value: thing.toString() };
-    
-  } else if (typeof thing === "function") {
-    object = { type: "function", value: thing.toString() };
     
   } else if (Array.isArray(thing)) {
     if (seen.has(thing)) {
@@ -54,6 +42,18 @@ function serialize(thing, seen = new Map(), isRoot = true) {
       };
       seen.delete(thing);
     }
+    
+  } else if (thing === null) {
+    object = { type: "null", value: "null" };
+    
+  } else if (thing === undefined) {
+    object = { type: "undefined", value: "undefined" };
+    
+  } else if (typeof thing === "boolean") {
+    object = { type: "boolean", value: thing.toString() };
+    
+  } else if (typeof thing === "function") {
+    object = { type: "function", value: thing.toString() };
     
   } else if (thing instanceof Error) {
     object = {
@@ -89,30 +89,30 @@ function serialize(thing, seen = new Map(), isRoot = true) {
 
 function deserialize(string, refs = {}) {
   const thing = JSON.parse(string);
-  if (thing.type === "null") {
-    return null;
-  } else if (thing.type === "undefined") {
-    return undefined;
-  } else if (thing.type === "string") {
-    return thing.value;
-  } else if (thing.type === "number") {
-    return Number(thing.value);
-  } else if (thing.type === "boolean") {
-    return thing.value === "true";
-  } else if (thing.type === "function") {
-    // Wrap in parentheses so eval returns the function expression.
-    return eval(`(${thing.value})`);
-  } else if (thing.type === "array") {
-    const arr = thing.value.map(val => deserialize(JSON.stringify(val), refs));
-    refs[thing.id] = arr;
-    return arr;
-  } else if (thing.type === "object") {
+  if (thing.type === "object") {
     const obj = {};
     refs[thing.id] = obj;
     thing.keys.forEach((key, i) => {
       obj[key] = deserialize(JSON.stringify(thing.vals[i]), refs);
     });
     return obj;
+  } else if (thing.type === "string") {
+    return thing.value;
+  } else if (thing.type === "number") {
+    return Number(thing.value);
+  } else if (thing.type === "array") {
+    const arr = thing.value.map(val => deserialize(JSON.stringify(val), refs));
+    refs[thing.id] = arr;
+    return arr;
+  } else if (thing.type === "null") {
+    return null;
+  } else if (thing.type === "undefined") {
+    return undefined;
+  } else if (thing.type === "boolean") {
+    return thing.value === "true";
+  } else if (thing.type === "function") {
+    // Wrap in parentheses so eval returns the function expression.
+    return eval(`(${thing.value})`);
   } else if (thing.type === "error") {
     const err = new Error(thing.value_message);
     err.name  = thing.value_name;
