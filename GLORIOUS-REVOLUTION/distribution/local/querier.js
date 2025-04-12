@@ -29,9 +29,7 @@ function query_one(query, callback) {
 
   fs.appendFileSync(global.logging_path, `QUERIER QUERYING... ${query} ${query_words}\n`);
 
-  const COMMON_PREFIXES = new Set([
-    'th', 'an', 'co', 're', 'in', 'de', 'pr', 'st', 'en', 'tr', 'di', 'ch', 'pe'
-  ]);
+  const COMMON_PREFIXES = require('../util/common_prefixes')
   function getSmartPrefix(term) {
     if (!term) return 'aa';
     const normalized = term.toLowerCase();
@@ -90,6 +88,7 @@ function query_one(query, callback) {
           const page_results = Object.keys(results.postings).map((key) => {
             const posting = results.postings[key];
             posting.tf_idf = parseFloat(posting.tf) * idf;
+            posting.query_word = word;
             return posting;
           });
 

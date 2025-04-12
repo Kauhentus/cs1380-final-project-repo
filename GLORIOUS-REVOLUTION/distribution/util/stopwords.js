@@ -1,3 +1,6 @@
+// stop words were collected from 8k pages statistics and manual review
+// removed words all had 1k > frequency and deemed not useful with peer review
+
 module.exports = new Set([
     // Common English stop words (keep your original list)
     "i", "me", "my", "myself", "we", "our", "ours", "ourselves",
@@ -144,7 +147,11 @@ module.exports = new Set([
     "pagetype", "quotes", "rgba", "keyword", "wikitext", "interface", 
 
     // Format identifiers and general descriptors that don't add taxonomic value
-    "bold", "italic", "size", "large", "small", "contain", "containing", "related", "similar",
-    "used", "uses", "pink", "purple", "green", "blue", "yellow", "orange", "red", "brown",
-    "black", "white", "gray", "grey", "smooth", "id", "style", "div", "span"
+    "bold", "italic", "size", "large", "small", "contain", "containing", "related", "similar", "used", "uses",  "smooth", "id", "style", "div", "span",
+
+    "kingdom", "origin", "status", "auth", "campaigns", "loginwiki", "nearby", "scientific", "taxon", 
+    "binomial", "classification", "genus", "levels", "species", "family", "inaturalist", "class", "domain", 
+    "expanding", "stubs", "imageright", "lepindex", "including", "subsection", "fran", "called", "manual",
+    "int", "along", "considered", "pmc", "although", "bokm", "needed", "redirected", "taxapad", "dicky", 
+    "identifierseupithecia", "much", "statementsarticles", "com", "since", "volume", "later", "another"
 ]);

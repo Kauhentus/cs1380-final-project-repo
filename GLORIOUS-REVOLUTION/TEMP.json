@@ -1,0 +1,1241 @@
+[
+  {
+    "docId": "/wiki/Lemon_juice",
+    "tf": 0.0007633587786259542,
+    "ranking": {
+      "tf": 0.0007633587786259542,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0007633587786259542
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × limon"
+    },
+    "timestamp": 1744479337674,
+    "tf_idf": 0.003267121194389978,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Urtica_dioica",
+    "tf": 0.0006246096189881324,
+    "ranking": {
+      "tf": 0.0006246096189881324,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0006246096189881324
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "urticaceae",
+      "binomialName": "urtica dioica"
+    },
+    "timestamp": 1744479346514,
+    "tf_idf": 0.002673284674984929,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Millepora_alcicornis",
+    "tf": 0.0019455252918287938,
+    "ranking": {
+      "tf": 0.0019455252918287938,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0019455252918287938
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "animalia",
+      "family": "milleporidae",
+      "binomialName": "millepora alcicornis"
+    },
+    "timestamp": 1744479350896,
+    "tf_idf": 0.008326709658853836,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Winter_moth",
+    "tf": 0.0017452006980802793,
+    "ranking": {
+      "tf": 0.0017452006980802793,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0017452006980802793
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "animalia",
+      "family": "geometridae",
+      "binomialName": "operophtera brumata"
+    },
+    "timestamp": 1744479353590,
+    "tf_idf": 0.007469334667802568,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Cassava",
+    "tf": 0.000423728813559322,
+    "ranking": {
+      "tf": 0.000423728813559322,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.000423728813559322
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "euphorbiaceae",
+      "binomialName": "manihot esculenta"
+    },
+    "timestamp": 1744479391444,
+    "tf_idf": 0.0018135291375639285,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Oat",
+    "tf": 0.0006325110689437065,
+    "ranking": {
+      "tf": 0.0006325110689437065,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0006325110689437065
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "poaceae",
+      "binomialName": "avena sativa"
+    },
+    "timestamp": 1744479394370,
+    "tf_idf": 0.00270710231793224,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Saint_John%27s_wort",
+    "tf": 0.0003266906239790918,
+    "ranking": {
+      "tf": 0.0003266906239790918,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0003266906239790918
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "hypericaceae",
+      "binomialName": "hypericum perforatum"
+    },
+    "timestamp": 1744479398218,
+    "tf_idf": 0.0013982125987098567,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Maize",
+    "tf": 0.0007627765064836003,
+    "ranking": {
+      "tf": 0.0007627765064836003,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0007627765064836003
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "poaceae",
+      "binomialName": "zea mays"
+    },
+    "timestamp": 1744479407461,
+    "tf_idf": 0.003264629111099063,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Cryptomeria",
+    "tf": 0.00245398773006135,
+    "ranking": {
+      "tf": 0.00245398773006135,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.00245398773006135
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "cupressaceae",
+      "binomialName": "cryptomeria japonica"
+    },
+    "timestamp": 1744479520910,
+    "tf_idf": 0.010502892673989869,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Breadfruit",
+    "tf": 0.0006934812760055479,
+    "ranking": {
+      "tf": 0.0006934812760055479,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0006934812760055479
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "moraceae",
+      "binomialName": "artocarpus altilis"
+    },
+    "timestamp": 1744479543266,
+    "tf_idf": 0.0029680504609229347,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Corylus_avellana",
+    "tf": 0.0014970059880239522,
+    "ranking": {
+      "tf": 0.0014970059880239522,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0014970059880239522
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "betulaceae",
+      "binomialName": "corylus avellana"
+    },
+    "timestamp": 1744479548425,
+    "tf_idf": 0.006407078988998311,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Peanut",
+    "tf": 0.000484027105517909,
+    "ranking": {
+      "tf": 0.000484027105517909,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.000484027105517909
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "fabaceae",
+      "binomialName": "arachis hypogaea"
+    },
+    "timestamp": 1744479565960,
+    "tf_idf": 0.002071601531776801,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Spinach",
+    "tf": 0.007042253521126761,
+    "ranking": {
+      "tf": 0.007042253521126761,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.007042253521126761
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "amaranthaceae",
+      "binomialName": "spinacia oleracea"
+    },
+    "timestamp": 1744479772555,
+    "tf_idf": 0.030140343413034308,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Lemon",
+    "tf": 0.0007633587786259542,
+    "ranking": {
+      "tf": 0.0007633587786259542,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0007633587786259542
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × limon"
+    },
+    "timestamp": 1744479775257,
+    "tf_idf": 0.003267121194389978,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Drumstick_(fruit)",
+    "tf": 0.0007485029940119761,
+    "ranking": {
+      "tf": 0.0007485029940119761,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0007485029940119761
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "moringaceae",
+      "binomialName": "moringa oleifera"
+    },
+    "timestamp": 1744479777345,
+    "tf_idf": 0.0032035394944991556,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Stinging_nettle",
+    "tf": 0.0006242197253433209,
+    "ranking": {
+      "tf": 0.0006242197253433209,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0006242197253433209
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "urticaceae",
+      "binomialName": "urtica dioica"
+    },
+    "timestamp": 1744479869747,
+    "tf_idf": 0.0026716159579593455,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Betula_pendula",
+    "tf": 0.0009225092250922509,
+    "ranking": {
+      "tf": 0.0009225092250922509,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0009225092250922509
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "betulaceae",
+      "binomialName": "betula pendula"
+    },
+    "timestamp": 1744479928783,
+    "tf_idf": 0.00394827376812811,
+    "query_word": "leafy"
+  },
+  {
+    "docId": "/wiki/Papaya",
+    "tf": 0.0007942811755361397,
+    "ranking": {
+      "tf": 0.0007942811755361397,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0007942811755361397
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "caricaceae",
+      "binomialName": "carica papaya"
+    },
+    "timestamp": 1744479335792,
+    "tf_idf": 0.0026810742576836534,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Lemon_juice",
+    "tf": 0.0030534351145038168,
+    "ranking": {
+      "tf": 0.0030534351145038168,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0030534351145038168
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × limon"
+    },
+    "timestamp": 1744479337709,
+    "tf_idf": 0.010306786230301434,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Geum_urbanum",
+    "tf": 0.0016806722689075631,
+    "ranking": {
+      "tf": 0.0016806722689075631,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0016806722689075631
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rosaceae",
+      "binomialName": "geum urbanum"
+    },
+    "timestamp": 1744479389526,
+    "tf_idf": 0.005673063009115496,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Potato",
+    "tf": 0.0003924646781789639,
+    "ranking": {
+      "tf": 0.0003924646781789639,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0003924646781789639
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "solanaceae",
+      "binomialName": "solanum tuberosum"
+    },
+    "timestamp": 1744479392601,
+    "tf_idf": 0.001324753724656091,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Oat",
+    "tf": 0.0006325110689437065,
+    "ranking": {
+      "tf": 0.0006325110689437065,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0006325110689437065
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "poaceae",
+      "binomialName": "avena sativa"
+    },
+    "timestamp": 1744479394388,
+    "tf_idf": 0.002135023713107982,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Rye",
+    "tf": 0.0006802721088435374,
+    "ranking": {
+      "tf": 0.0006802721088435374,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0006802721088435374
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "poaceae",
+      "binomialName": "secale cereale"
+    },
+    "timestamp": 1744479448456,
+    "tf_idf": 0.0022962397894038906,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Aspergillus_oryzae",
+    "tf": 0.001443001443001443,
+    "ranking": {
+      "tf": 0.001443001443001443,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.001443001443001443
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "fungi",
+      "family": "aspergillaceae",
+      "binomialName": "aspergillus oryzae"
+    },
+    "timestamp": 1744479457368,
+    "tf_idf": 0.004870811674493102,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Geotrichum_candidum",
+    "tf": 0.005154639175257732,
+    "ranking": {
+      "tf": 0.005154639175257732,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.005154639175257732
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "fungi",
+      "family": "dipodascaceae",
+      "binomialName": "geotrichum candidum"
+    },
+    "timestamp": 1744479482289,
+    "tf_idf": 0.017399342734142884,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Gnetum_gnemon",
+    "tf": 0.004761904761904762,
+    "ranking": {
+      "tf": 0.004761904761904762,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.004761904761904762
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "gnetaceae",
+      "binomialName": "gnetum gnemon"
+    },
+    "timestamp": 1744479508231,
+    "tf_idf": 0.016073678525827237,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Black_knot",
+    "tf": 0.003048780487804878,
+    "ranking": {
+      "tf": 0.003048780487804878,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.003048780487804878
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "fungi",
+      "family": "venturiaceae",
+      "binomialName": "dibotryon morbosum"
+    },
+    "timestamp": 1744479519745,
+    "tf_idf": 0.010291074665925975,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Almond",
+    "tf": 0.0009896091044037606,
+    "ranking": {
+      "tf": 0.0009896091044037606,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0009896091044037606
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rosaceae",
+      "binomialName": "prunus amygdalus"
+    },
+    "timestamp": 1744479541597,
+    "tf_idf": 0.003340398308187749,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Breadfruit",
+    "tf": 0.0006934812760055479,
+    "ranking": {
+      "tf": 0.0006934812760055479,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0006934812760055479
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "moraceae",
+      "binomialName": "artocarpus altilis"
+    },
+    "timestamp": 1744479543239,
+    "tf_idf": 0.0023408269697806658,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Coconut",
+    "tf": 0.00024242424242424242,
+    "ranking": {
+      "tf": 0.00024242424242424242,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.00024242424242424242
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "arecaceae",
+      "binomialName": "cocos nucifera"
+    },
+    "timestamp": 1744479555016,
+    "tf_idf": 0.0008182963613148412,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Asimina_triloba",
+    "tf": 0.0004580852038479157,
+    "ranking": {
+      "tf": 0.0004580852038479157,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0004580852038479157
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "annonaceae",
+      "binomialName": "asimina triloba"
+    },
+    "timestamp": 1744479733479,
+    "tf_idf": 0.0015462540038587813,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Grapefruit",
+    "tf": 0.0025210084033613447,
+    "ranking": {
+      "tf": 0.0025210084033613447,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0025210084033613447
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × paradisi"
+    },
+    "timestamp": 1744479757626,
+    "tf_idf": 0.008509594513673243,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Palestinian_sweet_lime",
+    "tf": 0.005263157894736842,
+    "ranking": {
+      "tf": 0.005263157894736842,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.005263157894736842
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus limettioides"
+    },
+    "timestamp": 1744479762857,
+    "tf_idf": 0.01776564468644063,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Bitter_gourd",
+    "tf": 0.0010787486515641855,
+    "ranking": {
+      "tf": 0.0010787486515641855,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0010787486515641855
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "cucurbitaceae",
+      "binomialName": "momordica charantia"
+    },
+    "timestamp": 1744479764897,
+    "tf_idf": 0.0036412863974365907,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_cavaleriei",
+    "tf": 0.0024813895781637717,
+    "ranking": {
+      "tf": 0.0024813895781637717,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0024813895781637717
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus cavaleriei"
+    },
+    "timestamp": 1744479765791,
+    "tf_idf": 0.00837586225911593,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Mandarin_orange",
+    "tf": 0.0028653295128939827,
+    "ranking": {
+      "tf": 0.0028653295128939827,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0028653295128939827
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus reticulata"
+    },
+    "timestamp": 1744479767287,
+    "tf_idf": 0.009671840946772835,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_assamensis",
+    "tf": 0.003003003003003003,
+    "ranking": {
+      "tf": 0.003003003003003003,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.003003003003003003
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus assamensis"
+    },
+    "timestamp": 1744479768838,
+    "tf_idf": 0.010136554025296455,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_depressa",
+    "tf": 0.0028368794326241137,
+    "ranking": {
+      "tf": 0.0028368794326241137,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0028368794326241137
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus depressa"
+    },
+    "timestamp": 1744479769337,
+    "tf_idf": 0.009575808483471546,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Kalpi_(fruit)",
+    "tf": 0.0028653295128939827,
+    "ranking": {
+      "tf": 0.0028653295128939827,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0028653295128939827
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × webberii"
+    },
+    "timestamp": 1744479772394,
+    "tf_idf": 0.009671840946772835,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Bergamot_orange",
+    "tf": 0.002325581395348837,
+    "ranking": {
+      "tf": 0.002325581395348837,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.002325581395348837
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus bergamia"
+    },
+    "timestamp": 1744479774017,
+    "tf_idf": 0.007849936024241208,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Lemon",
+    "tf": 0.0030534351145038168,
+    "ranking": {
+      "tf": 0.0030534351145038168,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0030534351145038168
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × limon"
+    },
+    "timestamp": 1744479775741,
+    "tf_idf": 0.010306786230301434,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Drumstick_(fruit)",
+    "tf": 0.0007485029940119761,
+    "ranking": {
+      "tf": 0.0007485029940119761,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0007485029940119761
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "moringaceae",
+      "binomialName": "moringa oleifera"
+    },
+    "timestamp": 1744479776757,
+    "tf_idf": 0.0025265512652872155,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Yuzu",
+    "tf": 0.0009505703422053232,
+    "ranking": {
+      "tf": 0.0009505703422053232,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0009505703422053232
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × junos"
+    },
+    "timestamp": 1744479778295,
+    "tf_idf": 0.0032086240403267296,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Bitter_orange",
+    "tf": 0.00303951367781155,
+    "ranking": {
+      "tf": 0.00303951367781155,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.00303951367781155
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × aurantium"
+    },
+    "timestamp": 1744479779965,
+    "tf_idf": 0.010259794803719512,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_margarita",
+    "tf": 0.005988023952095809,
+    "ranking": {
+      "tf": 0.005988023952095809,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.005988023952095809
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus margarita"
+    },
+    "timestamp": 1744479783130,
+    "tf_idf": 0.020212410122297724,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_myrtifolia",
+    "tf": 0.0021691973969631237,
+    "ranking": {
+      "tf": 0.0021691973969631237,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0021691973969631237
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus myrtifolia"
+    },
+    "timestamp": 1744479784205,
+    "tf_idf": 0.007322066139747765,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_glauca",
+    "tf": 0.0019230769230769232,
+    "ranking": {
+      "tf": 0.0019230769230769232,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0019230769230769232
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus glauca"
+    },
+    "timestamp": 1744479785923,
+    "tf_idf": 0.006491293250814846,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_limetta",
+    "tf": 0.0029154518950437317,
+    "ranking": {
+      "tf": 0.0029154518950437317,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0029154518950437317
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus limetta"
+    },
+    "timestamp": 1744479788510,
+    "tf_idf": 0.009841027668873818,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_mangshanensis",
+    "tf": 0.001736111111111111,
+    "ranking": {
+      "tf": 0.001736111111111111,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.001736111111111111
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus mangshanensis"
+    },
+    "timestamp": 1744479791348,
+    "tf_idf": 0.005860195295874513,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_ichangensis",
+    "tf": 0.0024937655860349127,
+    "ranking": {
+      "tf": 0.0024937655860349127,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0024937655860349127
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus cavaleriei"
+    },
+    "timestamp": 1744479794401,
+    "tf_idf": 0.008417637133226233,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Calamansi",
+    "tf": 0.00975609756097561,
+    "ranking": {
+      "tf": 0.00975609756097561,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.00975609756097561
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × microcarpa"
+    },
+    "timestamp": 1744479795031,
+    "tf_idf": 0.03293143893096312,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_macroptera",
+    "tf": 0.003780718336483932,
+    "ranking": {
+      "tf": 0.003780718336483932,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.003780718336483932
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus macroptera"
+    },
+    "timestamp": 1744479800979,
+    "tf_idf": 0.01276171073884204,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Tangerine",
+    "tf": 0.001443001443001443,
+    "ranking": {
+      "tf": 0.001443001443001443,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.001443001443001443
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × tangerina"
+    },
+    "timestamp": 1744479804290,
+    "tf_idf": 0.004870811674493102,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Tangor",
+    "tf": 0.0020833333333333333,
+    "ranking": {
+      "tf": 0.0020833333333333333,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0020833333333333333
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus reticulata × sinensis"
+    },
+    "timestamp": 1744479805083,
+    "tf_idf": 0.007032234355049416,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_celebica",
+    "tf": 0.003246753246753247,
+    "ranking": {
+      "tf": 0.003246753246753247,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.003246753246753247
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus celebica"
+    },
+    "timestamp": 1744479805889,
+    "tf_idf": 0.01095932626760948,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_halimii",
+    "tf": 0.0047169811320754715,
+    "ranking": {
+      "tf": 0.0047169811320754715,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0047169811320754715
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus halimii"
+    },
+    "timestamp": 1744479807430,
+    "tf_idf": 0.015922040049168487,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Hyuganatsu",
+    "tf": 0.002577319587628866,
+    "ranking": {
+      "tf": 0.002577319587628866,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.002577319587628866
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus tamurana"
+    },
+    "timestamp": 1744479814083,
+    "tf_idf": 0.008699671367071442,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_%C3%97_amblycarpa",
+    "tf": 0.0026109660574412533,
+    "ranking": {
+      "tf": 0.0026109660574412533,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.0026109660574412533
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus × amblycarpa"
+    },
+    "timestamp": 1744479815724,
+    "tf_idf": 0.008813244100323027,
+    "query_word": "sour"
+  },
+  {
+    "docId": "/wiki/Citrus_reshni",
+    "tf": 0.002617801047120419,
+    "ranking": {
+      "tf": 0.002617801047120419,
+      "taxonomyBoost": 1,
+      "binomialBoost": 1,
+      "positionBoost": 1,
+      "score": 0.002617801047120419
+    },
+    "taxonomyLevel": null,
+    "isBinomial": false,
+    "pageInfo": {
+      "kingdom": "plantae",
+      "family": "rutaceae",
+      "binomialName": "citrus reshni"
+    },
+    "timestamp": 1744479821997,
+    "tf_idf": 0.008836315419957382,
+    "query_word": "sour"
+  }
+]

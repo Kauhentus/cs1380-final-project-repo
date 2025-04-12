@@ -114,9 +114,7 @@ function index_one(callback) {
   callback = callback || cb;
   const index_start_time = Date.now();
 
-  const COMMON_PREFIXES = new Set([
-    'th', 'an', 'co', 're', 'in', 'de', 'pr', 'st', 'en', 'tr', 'di', 'ch', 'pe'
-  ]);
+  const COMMON_PREFIXES = require('../util/common_prefixes')
   function getSmartPrefix(term) {
     if (!term) return 'aa';
     const normalized = term.toLowerCase();
@@ -161,6 +159,11 @@ function index_one(callback) {
 
       distribution.crawler_group.store.get(url, (e, v) => {
         // fs.appendFileSync(global.logging_path, `   Indexer got: ${url} ${e} ${Object.keys(v)}\n`);
+        if(e) {
+          fs.appendFileSync(global.logging_path, ` INDEXER ERROR: ${e}\n`);
+          console.error(`Indexer error: ${e}`);
+          return callback(e, null);
+        }
         const document = v;
         const docId = document.url;
         const wordCounts = document.word_counts ? new Map(Object.entries(document.word_counts)) : new Map();

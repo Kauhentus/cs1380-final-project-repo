@@ -41,8 +41,7 @@ distribution.node.start(async (server) => {
 
     const get_nx = (link) => nodes[parseInt(id.getID(link).slice(0, 8), 16) % num_nodes];
 
-
-    for(let i = 0; i < num_nodes; i++) await spawn_nx(nodes[i]);
+    // for(let i = 0; i < num_nodes; i++) await spawn_nx(nodes[i]);
 
     // ##############
     // INITIALIZATION
@@ -87,30 +86,30 @@ distribution.node.start(async (server) => {
         });
     });
 
-    // await new Promise((resolve, reject) => {
-    //     distribution.querier_group.querier.query_one('leafy cultivation sour', (e, v) => {
+    await new Promise((resolve, reject) => {
+        distribution.querier_group.querier.query_one('leafy sour', (e, v) => {
 
-    //     // distribution.querier_group.querier.query_one('juveniles', async (e, v) => {
-    //         const results = v.map(result => ({
-    //             binomialName: result.pageInfo.binomialName,
-    //             url: result.docId,
-    //             tf_idf: result.tf_idf,
-    //         }));
-    //         console.log(e, results);
+        // distribution.querier_group.querier.query_one('juveniles', async (e, v) => {
+            const results = v.map(result => ({
+                binomialName: result.pageInfo.binomialName,
+                url: result.docId,
+                tf_idf: result.tf_idf,
+            }));
+            console.log(e, results);
 
-    //         // getting the data from the store
-    //         // await new Promise((resolve, reject) => {
-    //         //     distribution.crawler_group.store.get('/wiki/Lion%27s_mane_jellyfish', (e, v) => {
-    //         //         console.log(e, v);
-    //         //         resolve();
-    //         //     })
-    //         // });
+            // getting the data from the store
+            // await new Promise((resolve, reject) => {
+            //     distribution.crawler_group.store.get('/wiki/Lion%27s_mane_jellyfish', (e, v) => {
+            //         console.log(e, v);
+            //         resolve();
+            //     })
+            // });
         
-    //         resolve();
-    //     });
-    // });
+            resolve();
+        });
+    });
 
-    let max_iter = 1000;
+    let max_iter = 10000;
     let crawl_loop_iters = 0;
     let index_loop_iters = 0;
 
@@ -154,8 +153,8 @@ distribution.node.start(async (server) => {
         }
     }
 
-    crawl_loop();
-    index_loop();
+    // crawl_loop();
+    // index_loop();
 
     setTimeout(async () => {
         await new Promise((resolve, reject) => {
