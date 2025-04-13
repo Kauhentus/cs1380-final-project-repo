@@ -160,6 +160,7 @@ distribution.node.start(async (server) => {
   const query_string = "citrus";
 
   const do_crawl_and_indexing = false;
+  const headerLine = (text) => "#".repeat(text.length + 4);
 
   if (do_query) {
     await new Promise((resolve, reject) => {
@@ -171,7 +172,10 @@ distribution.node.start(async (server) => {
             return resolve();
           }
 
-          console.log("\n=== SEARCH METADATA ===");
+          console.log(headerLine("QUERY RESULTS"));
+          console.log(`# QUERY: "${query_string}" #`);
+          console.log(headerLine("QUERY RESULTS\n"));
+
           console.log(`Query: "${v.query}"`);
           console.log(`Terms searched for: ${v.terms.join(", ")}`);
           console.log(`Total results found: ${v.totalResults}\n`);
@@ -181,8 +185,9 @@ distribution.node.start(async (server) => {
             return resolve();
           }
 
-          console.log("Top Results Summary:");
-          console.log("--------------------");
+          console.log(headerLine("TOP RESULTS"));
+          console.log(`# TOP RESULTS #`);
+          console.log(headerLine("TOP RESULTS\n"));
           v.topResults.slice(0, 5).forEach((result, index) => {
             // console.log(result);
             const pageInfo = result.termDetails?.pageInfo || {};
@@ -236,14 +241,13 @@ distribution.node.start(async (server) => {
                     }
 
                     const title = data.title || "Unknown Title";
-                    const headerLine = "#".repeat(title.length + 4);
 
-                    console.log(headerLine);
+                    console.log(headerLine(title));
                     console.log(`# ${title} #`);
-                    console.log(`${headerLine}\n`);
+                    console.log(`${headerLine(title)}\n`);
 
                     if (data.binomial_name) {
-                      console.log(`Scientific name: ${data.binomial_name}`);
+                      console.log(`Binomial name: ${data.binomial_name}`);
                     }
 
                     if (data.hierarchy && data.hierarchy.length > 0) {
