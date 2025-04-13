@@ -90,11 +90,11 @@ distribution.node.start(async (server) => {
     // MANUAL CONTROL PANEL 
     // ######################
     const do_query = false;
-    const do_range_query = true;
+    const do_range_query = false;
     const query_string = 'leafy sour';
-    const range_query_string = 'Anthozoa';
+    const range_query_string = 'Antipatharia';
 
-    const do_crawl_and_indexing = false;
+    const do_crawl_and_indexing = true;
 
     if(do_query){
         await new Promise((resolve, reject) => {
@@ -126,7 +126,7 @@ distribution.node.start(async (server) => {
         await new Promise((resolve, reject) => {
             distribution.querier_group.querier.query_range(range_query_string, async (e, v) => {
                 const results = v;
-                console.log(e, results.length);
+                console.log(e, results);
 
                 // 283 of hexacorallia
                 // 100 of octocorallia

@@ -26,6 +26,7 @@ function initialize(callback) {
   metrics = {
     totalIndexTime: 0,
     documentsIndexed: 0,
+    errors: 0,
     
     current_time: Date.now(),
     time_since_previous: 0,
@@ -125,6 +126,7 @@ function index_one(callback) {
   }
 
   const fs = require('fs');
+  let success = true;
   fs.appendFileSync(global.logging_path, `RANGE INDEXING ONE...\n`);
 
   distribution.local.mem.get('links_to_range_index_map', (e1, links_to_range_index_map) => {
@@ -169,7 +171,6 @@ function index_one(callback) {
           const nids = nodes.map(node => distribution.util.id.getNID(node));
 
           // 2. ADD TO INDEX
-          const ranged_link_promises = [];
           for(let i = 0; i < taxonomyInfo.length - 1; i++) {
             const next_is_species = i === taxonomyInfo.length - 2;
             let [level, name] = taxonomyInfo[i];
@@ -177,21 +178,21 @@ function index_one(callback) {
             nextName = next_is_species ? `[SPECIES] ${url}` : nextName;
             const chosen_node = getChosenNode(name, nids, nodes);
 
-            ranged_link_promises.push(new Promise((resolve, reject) => {
+            await new Promise((resolve, reject) => {
               distribution.local.comm.send(
                 [ level, name, nextName ], 
                 { service: "store", method: "bulk_range_append", node: chosen_node }, 
                 (err, val) => {
-                  if(err) console.log(err, "HELP")
+                  if(err) success = false
                   resolve();
                 }
               );
-            }));
+            });
           }
-          await Promise.all(ranged_link_promises);
 
           metrics.documentsIndexed += 1;
           metrics.totalIndexTime += Date.now() - index_start_time;
+          metrics.errors += success ? 0 : 1;
 
           callback(null, { status: "not implemented" });
         });
