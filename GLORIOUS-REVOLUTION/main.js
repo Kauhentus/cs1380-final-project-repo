@@ -207,12 +207,16 @@ distribution.node.start(async (server) => {
 
             if (result.termDetails?.taxonomyLevel) {
               console.log(
-                `  * BOOSTED!!! Taxonomy match: ${result.termDetails.taxonomyLevel}`
+                `   \x1b[32m* BOOSTED!!! Taxonomy match: ${result.termDetails.taxonomyLevel}\x1b[0m`
               );
             }
 
+            // console.log("\x1b[31mThis text is red.\x1b[0m");
+
             if (result.termDetails?.isBinomial) {
-              console.log(`   * BOOSTED!!! Term appears in binomial name`);
+              console.log(
+                `   \x1b[32m* BOOSTED!!! Term appears in binomial name\x1b[0m`
+              );
             }
             console.log("");
           });

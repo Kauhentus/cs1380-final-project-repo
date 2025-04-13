@@ -77,9 +77,12 @@ const querier = function (config) {
       }
       function merger(prefixResults) {
         const mergedDocs = new Map();
+        let totalDocsFound = 0;
 
         prefixResults.forEach((prefixResult) => {
           if (!prefixResult || !prefixResult.results) return;
+
+          totalDocsFound += prefixResult.totalMatches;
 
           prefixResult.results.forEach((doc) => {
             const docId = doc.docId;
@@ -88,7 +91,6 @@ const querier = function (config) {
               const currDoc = mergedDocs.get(docId);
               currDoc.score += doc.score;
               currDoc.matchedTerms += doc.matchedTerms;
-              currDoc.matchRatio = Math.max(currDoc.matchRatio, doc.matchRatio);
             } else {
               mergedDocs.set(docId, { ...doc });
             }
@@ -105,7 +107,7 @@ const querier = function (config) {
           return b.score - a.score;
         });
 
-        return sortedResults;
+        return { mergedResults: sortedResults, totalDocsFound: totalDocsFound };
       }
 
       // TODO: Import the stop words from utils (can u unpack values like this in js)
@@ -172,12 +174,15 @@ const querier = function (config) {
           try {
             const nodeResults = await Promise.all(queryPromises);
 
-            const mergedResults = merger(nodeResults);
+            // const totalDocsFound = 0;
+
+            // const mergedResults = merger(nodeResults, totalDocsFound);
+            const { mergedResults, totalDocsFound } = merger(nodeResults);
 
             const response = {
               query: original,
               terms: terms,
-              totalResults: mergedResults.length,
+              totalResults: totalDocsFound,
               topResults: mergedResults.slice(0, 20),
               prefixMapping: Object.fromEntries(prefixMap),
               timing: {

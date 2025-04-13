@@ -101,9 +101,9 @@ function query_one(queryConfiguration, callback) {
 
           termScores[docId] = score;
           docTermMetaData[docId] = {
-            taxonomyLevel: posting ? posting.taxonomyLevel : null,
-            isBinomial: posting ? posting.isBinomial : null,
-            pageInfo: posting ? posting.pageInfo : null,
+            taxonomyLevel: posting?.taxonomyLevel || null,
+            isBinomial: posting?.isBinomial || null,
+            pageInfo: posting?.pageInfo || null,
           };
         }
 
@@ -121,6 +121,7 @@ function query_one(queryConfiguration, callback) {
       });
       results.sort((a, b) => b.score - a.score);
 
+      // TODO: We can limit this further if needed
       const topResults = results.slice(0, 50);
       const response = {
         prefix: prefix,
