@@ -1,4 +1,5 @@
 const { resolve } = require('path');
+const fs = require('fs');
 const distribution = require('./config.js');
 const id = distribution.util.id;
 const chalk = require('chalk');
@@ -25,6 +26,11 @@ const indexer_ranged_group = {};
 const indexer_ranged_group_config = { gid: 'indexer_ranged_group', hash: id.naiveHash };
 const querier_group = {};
 const querier_group_config = { gid: 'querier_group', hash: id.naiveHash };
+
+const log_and_append = (string) => {
+  console.log(string);
+  fs.appendFileSync('log.txt', string + '\n');
+}
 
 for (let i = 0; i < num_nodes; i++) {
   if(spawn_nodes_locally) nodes.push({ ip: '127.0.0.1', port: 7110 + i });
@@ -319,11 +325,11 @@ distribution.node.start(async (server) => {
               total_crawled_links += v1[key].crawled_links || 0;
               crawler_throughput += (v1[key].metrics.crawling.pagesProcessed / (v1[key].metrics.crawling.totalCrawlTime / 1000)) || 0;
             });
-            console.log(`CRAWLER_STATS:`);
-            console.log(`  links_to_crawl = ${total_links_to_crawl}`);
-            console.log(`  crawled_links = ${total_crawled_links}`);
-            console.log(`  throughput = ${crawler_throughput} pages/sec`);
-            console.log('');
+            log_and_append(`CRAWLER_STATS:`);
+            log_and_append(`  links_to_crawl = ${total_links_to_crawl}`);
+            log_and_append(`  crawled_links = ${total_crawled_links}`);
+            log_and_append(`  throughput = ${crawler_throughput} pages/sec`);
+            log_and_append('');
 
             let total_links_to_index = 0;
             let total_indexed_links = 0;
@@ -333,11 +339,11 @@ distribution.node.start(async (server) => {
               total_indexed_links += v2[key].indexed_links || 0;
               indexer_throughput += (v2[key].metrics.documentsIndexed / (v2[key].metrics.totalIndexTime / 1000)) || 0;
             });
-            console.log(`INDEXER_STATS:`);
-            console.log(`  links_to_index = ${total_links_to_index}`);
-            console.log(`  indexed_links = ${total_indexed_links}`);
-            console.log(`  throughput = ${indexer_throughput} pages/sec`);
-            console.log('');
+            log_and_append(`INDEXER_STATS:`);
+            log_and_append(`  links_to_index = ${total_links_to_index}`);
+            log_and_append(`  indexed_links = ${total_indexed_links}`);
+            log_and_append(`  throughput = ${indexer_throughput} pages/sec`);
+            log_and_append('');
 
             let total_links_to_range_index = 0;
             let total_range_indexed_links = 0;
@@ -347,11 +353,11 @@ distribution.node.start(async (server) => {
               total_range_indexed_links += v3[key].range_indexed_links || 0;
               range_indexer_throughput += (v3[key].metrics.documentsIndexed / (v3[key].metrics.totalIndexTime / 1000)) || 0;
             });
-            console.log(`RANGE_INDEXER_STATS:`);
-            console.log(`  links_to_range_index = ${total_links_to_range_index}`);
-            console.log(`  range_indexed_links = ${total_range_indexed_links}`);
-            console.log(`  throughput = ${range_indexer_throughput} pages/sec`);
-            console.log('');
+            log_and_append(`RANGE_INDEXER_STATS:`);
+            log_and_append(`  links_to_range_index = ${total_links_to_range_index}`);
+            log_and_append(`  range_indexed_links = ${total_range_indexed_links}`);
+            log_and_append(`  throughput = ${range_indexer_throughput} pages/sec`);
+            log_and_append('');
 
             resolve();
           });
@@ -399,12 +405,12 @@ distribution.node.start(async (server) => {
       const avg_time_ranged = avg(t4, t5, t6);
       const avg_num_results_ranged = avg(n4, n5, n6);
 
-      console.log(`QUERIER_STATS:`);
-      console.log(`  query_one avg_time = ${avg_time} ms`);
-      console.log(`  query_one avg_num_results = ${avg_num_results}`);
-      console.log(`  query_range avg_time = ${avg_time_ranged} ms`);
-      console.log(`  query_range avg_num_results = ${avg_num_results_ranged}`);
-      console.log('');
+      log_and_append(`QUERIER_STATS:`);
+      log_and_append(`  query_one avg_time = ${avg_time} ms`);
+      log_and_append(`  query_one avg_num_results = ${avg_num_results}`);
+      log_and_append(`  query_range avg_time = ${avg_time_ranged} ms`);
+      log_and_append(`  query_range avg_num_results = ${avg_num_results_ranged}`);
+      log_and_append('');
 
       resolve();
     });

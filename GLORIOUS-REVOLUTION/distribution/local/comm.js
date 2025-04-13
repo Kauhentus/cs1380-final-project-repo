@@ -96,8 +96,7 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
             }
 
             callback(new Error(e))
-            console.error('💥 PANIC: exiting now due to', e, remote.service, remote.method, remote.node);
-            process.exit(1);
+            // console.error('💥 PANIC: exiting now due to', e, remote.service, remote.method, remote.node);
         });
         req.write(data);
         req.end();

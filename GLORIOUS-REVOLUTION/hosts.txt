@@ -9,6 +9,9 @@ ec2-user@ec2-3-83-105-244.compute-1.amazonaws.com
 
 # manual ssh into one node
 # ssh -i cs1380.pem ec2-user@ec2-3-87-36-179.compute-1.amazonaws.com
+
+# ssh into orchestrator
+# ssh -i "cs1380.pem" ec2-user@ec2-13-218-56-15.compute-1.amazonaws.com
 ################
 ################
 
