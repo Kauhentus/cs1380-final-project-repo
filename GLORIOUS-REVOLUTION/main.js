@@ -156,10 +156,10 @@ distribution.node.start(async (server) => {
   // ######################
   // MANUAL CONTROL PANEL
   // ######################
-  const do_query = true;
-  const query_string = "citrus";
+  const do_query = false;
+  const query_string = "leafy sour";
 
-  const do_crawl_and_indexing = false;
+  const do_crawl_and_indexing = true;
   const headerLine = (text) => "#".repeat(text.length + 4);
 
   if (do_query) {
