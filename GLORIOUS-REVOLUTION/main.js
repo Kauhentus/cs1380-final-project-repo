@@ -4,6 +4,17 @@ const id = distribution.util.id;
 
 const num_nodes = 8;
 const nodes = [];
+// const nodes = [
+//     { ip: '3.87.36.179', port: 8000 },
+//     { ip: '54.205.32.141', port: 8000 },
+//     { ip: '18.207.186.50', port: 8000 },
+//     { ip: '3.89.92.113', port: 8000 },
+//     { ip: '52.205.252.133', port: 8000 },
+//     { ip: '44.201.146.230', port: 8000 },
+//     { ip: '44.201.140.46', port: 8000 },
+//     { ip: '3.83.105.244', port: 8000 }
+// ];
+const spawn_nodes_locally = true;
 
 const nids = [];
 const crawler_group = {};
@@ -41,11 +52,13 @@ distribution.node.start(async (server) => {
 
     const get_nx = (link) => nodes[parseInt(id.getID(link).slice(0, 8), 16) % num_nodes];
 
-    for(let i = 0; i < num_nodes; i++) await spawn_nx(nodes[i]);
-
     // ##############
     // INITIALIZATION
     // ##############
+    if(spawn_nodes_locally){
+        for(let i = 0; i < num_nodes; i++) await spawn_nx(nodes[i]);
+    }
+    
     const init_group = (group, config) => new Promise((resolve, reject) => {
         distribution.local.groups.put(config, group, (e, v) => {
             distribution[config.gid].groups.put(config, group, (e, v) => {
