@@ -19,6 +19,14 @@ const indexer = function (config) {
             );
         },
 
+        set_service_state: (state, callback) => {
+            distribution[context.gid].comm.send(
+                [state],
+                { service: 'indexer', method: 'set_service_state' },
+                callback
+            );
+        },
+
         add_link_to_crawl: (name, callback) => {
             distribution[context.gid].comm.send(
                 [name],

@@ -19,6 +19,14 @@ const indexer_ranged = function (config) {
             );
         },
 
+        set_service_state: (state, callback) => {
+            distribution[context.gid].comm.send(
+                [state],
+                { service: 'indexer_ranged', method: 'set_service_state' },
+                callback
+            );
+        },
+
         index_one: (name, callback) => {
             distribution[context.gid].comm.send(
                 [name],

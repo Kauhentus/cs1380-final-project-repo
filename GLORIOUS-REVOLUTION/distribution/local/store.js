@@ -274,8 +274,12 @@ function read_bulk(configuration, callback) {
   let gid_folder = is_group_put ? configuration.gid : 'all';
   let file_path = path.join(node_store_path, gid_folder, file_key);
 
-  const data = fs.readFileSync(file_path, { encoding: 'utf8'});
-  callback(null, data);
+  try {
+    const data = fs.readFileSync(file_path, { encoding: 'utf8'});
+    callback(null, data);  
+  } catch(err){
+    callback(err, null);
+  }
 
   })();
 }

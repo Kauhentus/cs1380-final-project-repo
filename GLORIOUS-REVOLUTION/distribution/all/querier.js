@@ -158,9 +158,8 @@ const querier = function (config) {
                     ];
                     distribution.local.comm.send(message, config, (err, response) => {
                       if (err) {
-                        console.error(
-                          `Error querying node for prefix ${prefix}:`,
-                          err
+                        if(log_queries) console.error(
+                          `Error querying node for prefix ${prefix}:`
                         );
                         resolve(null);
                       } else {
@@ -211,30 +210,33 @@ const querier = function (config) {
             return chosenNode;
           }
 
-          distribution.local.groups.get('indexer_ranged_group', async (e, v) => {
-            const nodes = Object.values(v);
-            const num_nodes = nodes.length;
-            const nids = nodes.map(node => distribution.util.id.getNID(node));
-            const chosen_node = getChosenNode(query, nids, nodes);
 
-            distribution.local.comm.send(
-              [ query, 0, [], options ], 
-              { service: "querier", method: "query_range", node: chosen_node }, 
-              (err, val) => {
-                if(err) return callback(err);
-
-                if(return_tree) {
-                    callback(err, val)
-                } 
-                
-                else {
-                    const output_species = val;
-                    if(output_species.some(species => !species.includes('[SPECIES]'))) throw new Error("query_range compromised");
-                    const processed_urls = output_species.map(species => species.slice(10));
-                    callback(null, processed_urls);
+          distribution.indexer_ranged_group.store.clean_bulk_range_append((e, v) => {
+            distribution.local.groups.get('indexer_ranged_group', async (e, v) => {
+              const nodes = Object.values(v);
+              const num_nodes = nodes.length;
+              const nids = nodes.map(node => distribution.util.id.getNID(node));
+              const chosen_node = getChosenNode(query, nids, nodes);
+  
+              distribution.local.comm.send(
+                [ query, 0, [], options ], 
+                { service: "querier", method: "query_range", node: chosen_node }, 
+                (err, val) => {
+                  if(err) return callback(err);
+  
+                  if(return_tree) {
+                      callback(err, val)
+                  } 
+                  
+                  else {
+                      const output_species = val;
+                      if(output_species.some(species => !species.includes('[SPECIES]'))) throw new Error("query_range compromised");
+                      const processed_urls = output_species.map(species => species.slice(10));
+                      callback(null, processed_urls);
+                  }
                 }
-              }
-            );
+              );
+            });
           });
         }
     };

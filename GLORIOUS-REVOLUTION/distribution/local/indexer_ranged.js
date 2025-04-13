@@ -86,6 +86,8 @@ function initialize(callback) {
   });
 }
 
+let service_paused = false;
+
 function start_index(callback) {
   callback = callback || cb;
 
@@ -93,15 +95,23 @@ function start_index(callback) {
     try {
       while (true) {
         await new Promise((resolve, reject) => {
-          distribution.local.indexer_ranged.index_one((e, v) => {
-            if(e || ('status' in v && v.status !== 'success')) {
-              setTimeout(() => {
+          if(service_paused) {
+            setTimeout(() => resolve(), 1000);
+          } 
+
+          else {
+            let resolve_timeout = setTimeout(() => resolve(), 10000);
+            distribution.local.indexer_ranged.index_one((e, v) => {
+              clearTimeout(resolve_timeout);
+              if(e || ('status' in v && v.status !== 'success')) {
+                setTimeout(() => {
+                  resolve();
+                }, 1000);
+              } else {
                 resolve();
-              }, 1000);
-            } else {
-              resolve();
-            }
-          })
+              }
+            })
+          }
         });
       }
     } catch (err) {
@@ -112,6 +122,11 @@ function start_index(callback) {
   index_loop();
 
   callback(null, true);
+}
+
+function set_service_state(state, callback) {
+  service_paused = state;
+  callback();
 }
 
 function index_one(callback) {
@@ -256,6 +271,7 @@ function save_maps_to_disk(callback) {
 module.exports = {
   initialize,
   start_index,
+  set_service_state,
   index_one,
   add_link_to_index,
   get_stats,

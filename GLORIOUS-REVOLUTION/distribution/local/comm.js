@@ -88,7 +88,7 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
         req.on('error', (e) => {
             // console.log("COMM ERROR", e);
             if (retries > 0 && (e.code === 'ECONNRESET' || e.code === 'ECONNREFUSED')) {
-                if(retries === 1) console.log(`Connection error (${e.code}), retrying in ${backoff}ms. Retries left: ${retries}`);
+                if(retries === 1) console.log(`Connection error (${e.code}), retrying in ${backoff}ms. Retries left: ${retries} ${remote.service} ${remote.method} ${remote.node.port}`);
                 setTimeout(() => {
                     send(message, remote, callback, retries - 1, backoff * 2);
                 }, backoff);
@@ -96,7 +96,7 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
             }
 
             callback(new Error(e))
-            console.error('💥 PANIC: exiting now due to', e);
+            console.error('💥 PANIC: exiting now due to', e, remote.service, remote.method, remote.node);
             process.exit(1);
         });
         req.write(data);

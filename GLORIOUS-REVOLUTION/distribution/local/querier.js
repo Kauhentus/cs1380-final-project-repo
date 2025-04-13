@@ -52,7 +52,7 @@ function query_one(queryConfiguration, callback) {
   };
   distribution.local.store.read_bulk(bulkReadConfig, (error, prefixData) => {
     if (error) {
-      console.error(`Error reading prefix data for ${prefix}:`, error);
+      // console.error(`ERROR reading prefix data for ${prefix}`);
       return callback(error);
     }
     try {

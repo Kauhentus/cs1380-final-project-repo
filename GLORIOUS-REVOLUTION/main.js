@@ -3,10 +3,9 @@ const distribution = require('./config.js');
 const id = distribution.util.id;
 const chalk = require('chalk');
 
+const spawn_nodes_locally = true;
 const num_nodes = 8;
-const spawn_nodes_locally = false;
-// const nodes = [];
-const nodes = [
+const nodes = spawn_nodes_locally ? [] : [
     { ip: '3.87.36.179', port: 8000 },
     { ip: '54.205.32.141', port: 8000 },
     { ip: '18.207.186.50', port: 8000 },
@@ -108,11 +107,11 @@ distribution.node.start(async (server) => {
   const do_query = false;
   const query_string = 'aquatic water seed';
 
-  const do_range_query = true;
-  const range_query_string = 'Cnidaria'; // Angiosperms, Rosids, Anthozoa
+  const do_range_query = false;
+  const range_query_string = 'plantae'; // Angiosperms, Rosids, Anthozoa, cnidaria, haliclystidae
   const range_query_tree = true;
 
-  const do_crawl_and_indexing = false;
+  const do_crawl_and_indexing = true;
 
   const headerLine = (text) => "#".repeat(text.length + 4);
   if (do_query) {
@@ -231,19 +230,24 @@ distribution.node.start(async (server) => {
 
   if (do_range_query) {
     await new Promise((resolve, reject) => {
+      const start_time = Date.now();
       distribution.querier_group.querier.query_range(range_query_string, { return_tree: range_query_tree }, async (e, v) => {
         if(e) return resolve('Invalid range query string');
         const results = v;
 
         if(range_query_tree){
           const collapse_species = false;
-
+          let num_species_encountered = 0;
+          let num_taxa_encountered = 0;
           const recursive_print = (node, depth, is_last_child = true, prefix = '') => {
             const is_species = node.is_species;
             const has_children = node.children && node.children.length > 0;
             const num_species_children = has_children ? node.children.filter(child => child.is_species).length : 0;
             const name_formatted = (is_species ? chalk.ansi256(219)('*') + `${node.name.replace('[SPECIES] /wiki/', ' ')}` : node.name) + (collapse_species && num_species_children > 0 ? ` (${num_species_children})` : '')
             const name_formatted_color = is_species ? chalk.green(name_formatted) : chalk.ansi256(191)(name_formatted);
+
+            if (is_species) num_species_encountered++;
+            else num_taxa_encountered++;
 
             const branch_ansi = chalk.ansi256(180);
 
@@ -265,6 +269,9 @@ distribution.node.start(async (server) => {
             }
           }
           recursive_print(results, 0);
+          console.log('');
+          console.log(`Found ${num_taxa_encountered} taxa and ${num_species_encountered} species!`);
+          console.log(`(${num_taxa_encountered + num_species_encountered} results in ${Date.now() - start_time}ms)`)
         }
 
         else {
@@ -298,9 +305,9 @@ distribution.node.start(async (server) => {
     });
 
     // ############################
-    // LOGGING STATS
+    // LOGGING & QUERY STATS
     // ############################
-    const log_stats = () => {
+    const log_core_stats = () => new Promise(async (resolve, reject) => {
       distribution.crawler_group.crawler.get_stats((e, v1) => {
         distribution.indexer_group.indexer.get_stats((e, v2) => {
           distribution.indexer_ranged_group.indexer_ranged.get_stats((e, v3) => {
@@ -345,63 +352,97 @@ distribution.node.start(async (server) => {
             console.log(`  range_indexed_links = ${total_range_indexed_links}`);
             console.log(`  throughput = ${range_indexer_throughput} pages/sec`);
             console.log('');
+
+            resolve();
+          });
+        });
+      });
+    });
+
+    const log_query_stats = () => new Promise(async (resolve, reject) => {
+      const avg = (...array) => array.reduce((a, b) => a + b) / array.length;
+      const query_one = (query_string) => new Promise((resolve, reject) => {
+        const start_time = new Date();
+        distribution.querier_group.querier.query_one(query_string, { no_trim: true }, async (e, v) => {
+          if(e) return resolve([0, 0]);
+          const elapsed_time = new Date() - start_time;
+          const num_results = v.topResults.length;
+          resolve([elapsed_time, num_results]);
+        });
+      });
+      const [t1, n1] = await query_one('citrus');
+      await sleep(1000);
+      const [t2, n2] = await query_one('leafy sour');
+      await sleep(1000);
+      const [t3, n3] = await query_one('north water seed');
+      await sleep(1000);
+      const avg_time = avg(t1, t2, t3);
+      const avg_num_results = avg(n1, n2, n3);
+
+      await sleep(3000);
+
+      const query_ranged = (query_string) => new Promise((resolve, reject) => {
+        const start_time = new Date();
+        distribution.querier_group.querier.query_range(query_string, { return_tree: false }, async (e, v) => {
+          if(e) return resolve([0, 0]);
+          const elapsed_time = new Date() - start_time;
+          const num_results = v.length;
+          resolve([elapsed_time, num_results]);
+        });
+      });
+      const [t4, n4] = await query_ranged('Anthozoa');
+      await sleep(1000);
+      const [t5, n5] = await query_ranged('Rosids');
+      await sleep(1000);
+      const [t6, n6] = await query_ranged('Angiosperms');
+      await sleep(1000);
+      const avg_time_ranged = avg(t4, t5, t6);
+      const avg_num_results_ranged = avg(n4, n5, n6);
+
+      console.log(`QUERIER_STATS:`);
+      console.log(`  query_one avg_time = ${avg_time} ms`);
+      console.log(`  query_one avg_num_results = ${avg_num_results}`);
+      console.log(`  query_range avg_time = ${avg_time_ranged} ms`);
+      console.log(`  query_range avg_num_results = ${avg_num_results_ranged}`);
+      console.log('');
+
+      resolve();
+    });
+
+    const main_metric_loop = async () => {
+      console.log("PAUSING CORE SERVICES...\n");
+      await new Promise((resolve, reject) => {
+        distribution.crawler_group.crawler.set_service_state(true, (e, v) => {
+          distribution.indexer_group.indexer.set_service_state(true, (e, v) => {
+            distribution.indexer_ranged_group.indexer_ranged.set_service_state(true, (e, v) => {
+              resolve();
+            });
+          });
+        });
+      });
+      await sleep(3000);
+
+      await log_core_stats();
+
+      await sleep(3000);
+
+      await log_query_stats();
+
+      await sleep(3000);
+
+      console.log("RESUMING CORE SERVICES...\n");
+      await new Promise((resolve, reject) => {
+        distribution.crawler_group.crawler.set_service_state(false, (e, v) => {
+          distribution.indexer_group.indexer.set_service_state(false, (e, v) => {
+            distribution.indexer_ranged_group.indexer_ranged.set_service_state(false, (e, v) => {
+              resolve();
+            });
           });
         });
       });
     }
-    setInterval(() => log_stats(), 30000);
-    log_stats();
-
-    // ############################
-    // QUERY STATS
-    // ############################
-    setTimeout(() => {
-      setInterval(async () => {
-        const avg = (...array) => array.reduce((a, b) => a + b) / array.length;
-        const query_one = (query_string) => new Promise((resolve, reject) => {
-          const start_time = new Date();
-          distribution.querier_group.querier.query_one(query_string, { no_trim: true }, async (e, v) => {
-            if(e) return resolve([0, 0]);
-            const elapsed_time = new Date() - start_time;
-            const num_results = v.topResults.length;
-            resolve([elapsed_time, num_results]);
-          });
-        });
-        const [t1, n1] = await query_one('citrus');
-        await sleep(100);
-        const [t2, n2] = await query_one('leafy sour');
-        await sleep(100);
-        const [t3, n3] = await query_one('north water seed');
-        await sleep(100);
-        const avg_time = avg(t1, t2, t3);
-        const avg_num_results = avg(n1, n2, n3);
-
-        // const query_ranged = (query_string) => new Promise((resolve, reject) => {
-        //   const start_time = new Date();
-        //   distribution.querier_group.querier.query_range(query_string, {}, async (e, v) => {
-        //     if(e) return resolve([0, 0]);
-        //     const elapsed_time = new Date() - start_time;
-        //     const num_results = v.length;
-        //     resolve([elapsed_time, num_results]);
-        //   });
-        // });
-        // const [t4, n4] = await query_ranged('Anthozoa');
-        // await sleep(100);
-        // const [t5, n5] = await query_ranged('Rosids');
-        // await sleep(100);
-        // const [t6, n6] = await query_ranged('Angiosperms');
-        // await sleep(100);
-        // const avg_time_ranged = avg(t4, t5, t6);
-        // const avg_num_results_ranged = avg(n4, n5, n6);
-
-        console.log(`QUERIER_STATS:`);
-        console.log(`  query_one avg_time = ${avg_time} ms`);
-        console.log(`  query_one avg_num_results = ${avg_num_results}`);
-        // console.log(`  query_range avg_time = ${avg_time_ranged} ms`);
-        // console.log(`  query_range avg_num_results = ${avg_num_results_ranged}`);
-        console.log('');
-      }, 120000);
-    }, 15000);
+    setInterval(main_metric_loop, 120000);
+    setTimeout(() => main_metric_loop(), 3000);
 
     // ############################
     // SAVE MAPS TO DISK

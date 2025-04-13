@@ -110,6 +110,8 @@ function initialize(callback) {
   });
 }
 
+let service_paused = false;
+
 function start_crawl(callback) {
   callback = callback || cb;
 
@@ -117,15 +119,23 @@ function start_crawl(callback) {
     try {
       while (true) {
         await new Promise((resolve, reject) => {
-          distribution.local.crawler.crawl_one((e, v) => {
-            if(e || ('status' in v && v.status !== 'success')) {
-              setTimeout(() => {
+          if(service_paused) {
+            setTimeout(() => resolve(), 1000);
+          } 
+          
+          else {
+            let resolve_timeout = setTimeout(() => resolve(), 10000);
+            distribution.local.crawler.crawl_one((e, v) => {
+              clearTimeout(resolve_timeout);
+              if(e || ('status' in v && v.status !== 'success')) {
+                setTimeout(() => {
+                  resolve();
+                }, 1000);
+              } else {
                 resolve();
-              }, 1000);
-            } else {
-              resolve();
-            }
-          })
+              }
+            })
+          }
         });
       }
     } catch (err) {
@@ -138,6 +148,10 @@ function start_crawl(callback) {
   callback(null, true);
 }
 
+function set_service_state(state, callback) {
+  service_paused = state;
+  callback();
+}
 
 function add_link_to_crawl(link, callback) {
   callback = callback || cb;
@@ -435,6 +449,7 @@ function save_maps_to_disk(callback) {
 module.exports = {
   initialize,
   start_crawl,
+  set_service_state,
   add_link_to_crawl,
   crawl_one,
   get_stats,
