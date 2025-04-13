@@ -104,18 +104,18 @@ distribution.node.start(async (server) => {
   // ######################
   // MANUAL CONTROL PANEL 
   // ######################
-  const do_query = false;
+  const do_query = true;
   const do_range_query = false;
-  const query_string = 'citrus';
+  const query_string = 'aquatic water seed';
   const range_query_string = 'Anthozoa'; // Angiosperms, Rosids, Anthozoa
 
-  const do_crawl_and_indexing = true;
+  const do_crawl_and_indexing = false;
 
   const headerLine = (text) => "#".repeat(text.length + 4);
   if (do_query) {
     await new Promise((resolve, reject) => {
       distribution.querier_group.querier.query_one(
-        {}, query_string,
+        query_string, {},
         async (e, v) => {
           if (e) {
             console.error("Query failed:", e);
@@ -362,7 +362,7 @@ distribution.node.start(async (server) => {
         // console.log(`  query_range avg_time = ${avg_time_ranged} ms`);
         // console.log(`  query_range avg_num_results = ${avg_num_results_ranged}`);
         console.log('');
-      }, 30000);
+      }, 120000);
     }, 15000);
 
     // ############################
