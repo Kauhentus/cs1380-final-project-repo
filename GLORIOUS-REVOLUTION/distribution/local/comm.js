@@ -17,7 +17,7 @@ const http = require('http');
  * @param {Callback} [callback]
  * @return {void}
  */
-function send(message, remote, callback) {
+function send(message, remote, callback, retries = 3, backoff = 500) {
     // const serialize = require('../../config').util.serialize;
     // const deserialize = require('../../config').util.deserialize;
     const serialize = distribution.util.serialize;
@@ -87,7 +87,17 @@ function send(message, remote, callback) {
         });
         req.on('error', (e) => {
             // console.log("COMM ERROR", e);
+            if (retries > 0 && (e.code === 'ECONNRESET' || e.code === 'ECONNREFUSED')) {
+                if(retries === 1) console.log(`Connection error (${e.code}), retrying in ${backoff}ms. Retries left: ${retries}`);
+                setTimeout(() => {
+                    send(message, remote, callback, retries - 1, backoff * 2);
+                }, backoff);
+                return;
+            }
+
             callback(new Error(e))
+            console.error('💥 PANIC: exiting now due to', e);
+            process.exit(1);
         });
         req.write(data);
         req.end();

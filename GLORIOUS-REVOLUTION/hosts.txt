@@ -1,0 +1,75 @@
+ec2-user@ec2-3-87-36-179.compute-1.amazonaws.com
+ec2-user@ec2-54-205-32-141.compute-1.amazonaws.com
+ec2-user@ec2-18-207-186-50.compute-1.amazonaws.com
+ec2-user@ec2-3-89-92-113.compute-1.amazonaws.com
+ec2-user@ec2-52-205-252-133.compute-1.amazonaws.com
+ec2-user@ec2-44-201-146-230.compute-1.amazonaws.com
+ec2-user@ec2-44-201-140-46.compute-1.amazonaws.com
+ec2-user@ec2-3-83-105-244.compute-1.amazonaws.com
+
+# manual ssh into one node
+# ssh -i cs1380.pem ec2-user@ec2-3-87-36-179.compute-1.amazonaws.com
+################
+################
+
+# install pssh for group ssh commands
+# brew install pssh
+
+######################
+# CLUSTER SSH COMMANDS
+######################
+# set up node
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "sudo yum install git -y"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "nvm install 22"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "git clone https://github.com/Kauhentus/cs1380-final-project-repo.git"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && git checkout --track origin/armaan-test"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && npm i"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "sudo yum install -y iptables-services"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "sudo iptables -I INPUT -p tcp --dport 8000 -j ACCEPT"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "npm install -g pm2"
+
+# git pull changes
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/ && git pull"
+
+# start/restart/stop distribution server
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/GLORIOUS-REVOLUTION/ && pm2 start distribution.js --name distribution -- --ip '0.0.0.0' --port 8000"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "pm2 restart distribution"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "pm2 delete distribution"
+
+# remove store and crawler files
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "killall -9 node"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/GLORIOUS-REVOLUTION/ && rm store/ -r"
+# pssh -h hosts.txt -x "-i cs1380.pem -o StrictHostKeyChecking=no" "cd /home/ec2-user/cs1380-final-project-repo/GLORIOUS-REVOLUTION/ && rm crawler-files/ -r"
+
+##########################
+# ORCHESTRATOR SSH COMMANDS
+##########################
+
+# manual ssh into orchestrator node
+# ssh -i cs1380.pem ec2-user@100.28.4.129
+
+# orchestrator node setup
+# sudo yum install git -y
+# curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash
+# nvm install 22
+# git clone https://github.com/Kauhentus/cs1380-final-project-repo.git
+# cd /home/ec2-user/cs1380-final-project-repo/ && npm i
+# sudo yum install -y iptables-services
+# sudo iptables -I INPUT -p tcp --dport 8000 -j ACCEPT
+# npm install -g pm2
+# pm2 install pm2-logrotate
+# pm2 set pm2-logrotate:max_size 1M
+
+# orchestrator node run and restart
+# pm2 start 2-distributed-crawl.js --name orchestrator  --output ./pm2.log --error ./pm2.log
+# pm2 restart orchestrator
+# pm2 delete orchestrator
+
+# grep 'Accepted' /var/log/auth.log | wc -l
+
+# copy store backup
+# scp -P 22 -i cs1380.pem ec2-user@3.225.196.65:cs1380-final-project-repo/store.zip store
+# scp -P 22 -i cs1380.pem ec2-user@34.231.129.22:cs1380-final-project-repo/store.zip store
+# scp -P 22 -i cs1380.pem ec2-user@35.168.108.255:cs1380-final-project-repo/store.zip store
+# scp -P 22 -i cs1380.pem ec2-user@54.145.177.180:cs1380-final-project-repo/store.zip store
