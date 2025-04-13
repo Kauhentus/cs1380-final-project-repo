@@ -16,6 +16,7 @@ const querier = function (config) {
       //   console.log(`QUERIER QUERYING... ${query}`);
       //   console.log(`QUERIER GID: ${context.gid}`);
       const COMMON_PREFIXES = require("../util/common_prefixes");
+      const stopWordsSet = require("../util/stopwords");
       function getSmartPrefix(term) {
         if (!term) return "aa";
         const normalized = term.toLowerCase();
@@ -33,98 +34,166 @@ const querier = function (config) {
         );
         return chosenNode;
       }
-      //   distribution.local.groups.get("indexer_group", (e, v) => {
-      //     if (e) {
-      //       console.error(e);
-      //       callback(e);
-      //       return;
-      //     }
-      //     const nodes = Object.values(v);
-      //     const nids = nodes.map((node) => distribution.util.id.getNID(node));
-      //     const query_words = query
-      //       .split(" ")
-      //       .filter((word) => word.trim() !== "")
-      //       .map((word) => word.trim().toLowerCase());
-      //     const query_prefixes = query_words.map((word) => {
-      //       let prefix = getSmartPrefix(word);
-      //     });
-      //   });
-      distribution[context.gid].comm.send(
-        [query],
-        { service: "querier", method: "query_one" },
-        (e, v) => {
-          const query_words = query
-            .split(" ")
-            .filter((word) => word.trim() !== "")
-            .map((word) => word.trim().toLowerCase());
+      function processQuery(query) {
+        const queryNorm = query.toLowerCase().trim();
 
-          const data = Object.values(v)
-            .filter((result) => Array.isArray(result))
-            .flat();
+        const terms = queryNorm
+          .replace(/[^\w\s]/g, "")
+          .split(/\s+/)
+          .filter((term) => term.length > 0 && !stopWordsSet.has(term));
 
-          const all_docs_query_tf_idf = {};
-          data.map((posting) => {
-            const docId = posting.pageInfo.binomialName;
-            if (all_docs_query_tf_idf[docId] === undefined)
-              all_docs_query_tf_idf[docId] = {};
-            const current_word = posting.query_word;
-            all_docs_query_tf_idf[docId][current_word] = posting;
-          });
-          const final_collation = [];
-          Object.keys(all_docs_query_tf_idf).map((key) => {
-            const this_doc_query_tf_idf = all_docs_query_tf_idf[key];
-            const queries_on_doc = Object.keys(this_doc_query_tf_idf);
-            const missing_queries = query_words.filter(
-              (query) => !queries_on_doc.includes(query)
-            );
-            missing_queries.map((query_word) => {
-              this_doc_query_tf_idf[query_word] = {
-                docId: key,
-                pageInfo: {
-                  binomialName:
-                    this_doc_query_tf_idf[queries_on_doc[0]].pageInfo
-                      .binomialName,
-                },
-                tf: 0.0000001,
-                ranking: {
-                  tf: 0.0000001,
-                  score: 0.0000001,
-                },
-                tf_idf: 0.0000001,
-                query_word: query_word,
-              };
-            });
-            Object.values(this_doc_query_tf_idf).map((posting) =>
-              final_collation.push(posting)
-            );
-          });
-
-          const combine_by_binomial_name = (results) => {
-            const acc = results.reduce((map, item) => {
-              const key = item.pageInfo.binomialName;
-              if (!map[key]) {
-                map[key] = { ...item, ranking: { ...item.ranking } };
-              } else {
-                map[key].tf *= item.tf;
-                map[key].tf_idf *= item.tf_idf;
-                map[key].ranking.tf *= item.ranking.tf;
-                map[key].ranking.score *= item.ranking.score;
-              }
-              return map;
-            }, {});
-            return Object.values(acc);
-          };
-          const results = combine_by_binomial_name(final_collation).sort(
-            (a, b) => b.tf_idf - a.tf_idf
-          );
-
-          results.map(
-            (result) => (result.tf_idf = +result.tf_idf.toPrecision(4))
-          );
-
-          callback(null, results);
+        const prefixMap = new Map();
+        for (const term of terms) {
+          const prefix = getSmartPrefix(term);
+          if (!prefixMap.has(prefix)) {
+            prefixMap.set(prefix, []);
+          }
+          prefixMap.get(prefix).push(term);
         }
-      );
+
+        return {
+          original: query,
+          normalized: queryNorm,
+          terms: terms,
+          prefixMap: prefixMap,
+        };
+      }
+      function getTotalDocumentCount(callback) {
+        distribution.indexer_group.comm.send(
+          [],
+          { service: "indexer", method: "get_idf_doc_count" },
+          (errMap, resMap) => {
+            let totalCount = 0;
+            for (const nodeId in resMap) {
+              totalCount += resMap[nodeId].num_docs_on_node || 0;
+            }
+            if (totalCount === 0) {
+              totalCount = 10000;
+            }
+
+            callback(null, totalCount);
+          }
+        );
+      }
+      function merger(prefixResults) {
+        const mergedDocs = new Map();
+
+        prefixResults.forEach((prefixResult) => {
+          if (!prefixResult || !prefixResult.results) return;
+
+          prefixResult.results.forEach((doc) => {
+            const docId = doc.docId;
+
+            if (mergedDocs.has(docId)) {
+              const currDoc = mergedDocs.get(docId);
+              currDoc.score += doc.score;
+              currDoc.matchedTerms += doc.matchedTerms;
+              currDoc.matchRatio = Math.max(currDoc.matchRatio, doc.matchRatio);
+            } else {
+              mergedDocs.set(docId, { ...doc });
+            }
+          });
+        });
+
+        const sortedResults = Array.from(mergedDocs.values());
+
+        sortedResults.sort((a, b) => {
+          // TODO: this should handle the spinach case
+          if (b.matchedTerms !== a.matchedTerms) {
+            return b.matchedTerms - a.matchedTerms;
+          }
+          return b.score - a.score;
+        });
+
+        return sortedResults;
+      }
+
+      // TODO: Import the stop words from utils (can u unpack values like this in js)
+      console.log(`Processing query: "${query}"`);
+      const { original, normalized, terms, prefixMap } = processQuery(query);
+      if (terms.length === 0) {
+        return callback(null, {
+          query: original,
+          results: [],
+          message: "No valid search terms found after removing common words",
+        });
+      }
+      console.log(`Tokenized terms: ${JSON.stringify(terms)}`);
+      getTotalDocumentCount(async (err, totalDocCount) => {
+        distribution.local.groups.get("indexer_group", async (e, v) => {
+          if (e) {
+            console.error(e);
+            callback(e);
+            return;
+          }
+          const nodes = Object.values(v);
+          const nids = nodes.map((node) => distribution.util.id.getNID(node));
+          const queryPromises = [];
+
+          for (const [prefix, terms] of prefixMap.entries()) {
+            console.log(`Processing prefix: ${prefix} with terms: ${terms}`);
+            const chosenNode = getChosenNode(prefix, nids, nodes);
+            if (!chosenNode) {
+              console.error(`No chosen node for prefix: ${prefix}`);
+              continue;
+            }
+            console.log(
+              `Chosen Node for prefix ${prefix}: ${JSON.stringify(chosenNode)}`
+            );
+
+            const queryPromise = new Promise((resolve, reject) => {
+              const config = {
+                service: "querier",
+                method: "query_one",
+                node: chosenNode,
+              };
+              const message = [
+                {
+                  terms: terms,
+                  prefix: prefix,
+                  totalDocCount: totalDocCount,
+                },
+              ];
+              distribution.local.comm.send(message, config, (err, response) => {
+                if (err) {
+                  console.error(
+                    `Error querying node for prefix ${prefix}:`,
+                    err
+                  );
+                  resolve(null);
+                } else {
+                  resolve(response);
+                }
+              });
+            });
+            queryPromises.push(queryPromise);
+          }
+
+          try {
+            const nodeResults = await Promise.all(queryPromises);
+
+            const mergedResults = merger(nodeResults);
+
+            const response = {
+              query: original,
+              terms: terms,
+              totalResults: mergedResults.length,
+              topResults: mergedResults.slice(0, 20),
+              prefixMapping: Object.fromEntries(prefixMap),
+              timing: {
+                processedAt: new Date().toISOString(),
+              },
+            };
+
+            callback(null, response);
+          } catch (error) {
+            console.error("Error processing distributed query:", error);
+            callback(error);
+          }
+
+          // TODO: need to finish
+        });
+      });
     },
   };
 };

@@ -2,8 +2,8 @@ const { resolve } = require("path");
 const distribution = require("./config.js");
 const id = distribution.util.id;
 
-const num_nodes = 8;
-// const nodes = [];
+const num_nodes = 4;
+const nodes = [];
 //
 const nids = [];
 const crawler_group = {};
@@ -18,20 +18,20 @@ const indexer_ranged_group_config = {
 const querier_group = {};
 const querier_group_config = { gid: "querier_group", hash: id.naiveHash };
 
-const nodes = [
-  { ip: "18.191.20.248", port: 1234 },
-  { ip: "3.141.28.230", port: 1234 },
-  { ip: "18.119.165.204", port: 1234 },
-  { ip: "18.116.47.118", port: 1234 },
-  { ip: "18.216.71.206", port: 1234 },
-  { ip: "3.147.54.10", port: 1234 },
-  { ip: "18.119.110.33", port: 1234 },
-  { ip: "3.145.75.154", port: 1234 },
-];
+// const nodes = [
+//   { ip: "18.191.20.248", port: 1234 },
+//   { ip: "3.141.28.230", port: 1234 },
+//   { ip: "18.119.165.204", port: 1234 },
+//   //   { ip: "18.116.47.118", port: 1234 },
+//   //   { ip: "18.216.71.206", port: 1234 },
+//   //   { ip: "3.147.54.10", port: 1234 },
+//   //   { ip: "18.119.110.33", port: 1234 },
+//   //   { ip: "3.145.75.154", port: 1234 },
+// ];
 
 for (let i = 0; i < num_nodes; i++) {
-  //   nodes.push({ ip: "127.0.0.1", port: 7110 + i });
-  //   nids.push(id.getNID(nodes[i]));
+  nodes.push({ ip: "127.0.0.1", port: 7110 + i });
+  nids.push(id.getNID(nodes[i]));
 
   const sid = id.getSID(nodes[i]);
   crawler_group[sid] = nodes[i];
@@ -62,11 +62,23 @@ distribution.node.start(async (server) => {
   const get_nx = (link) =>
     nodes[parseInt(id.getID(link).slice(0, 8), 16) % num_nodes];
 
-  // for(let i = 0; i < num_nodes; i++) await spawn_nx(nodes[i]);
+  for (let i = 0; i < num_nodes; i++) await spawn_nx(nodes[i]);
 
   // ##############
   // INITIALIZATION
   // ##############
+  const healthCheack = (group) => {
+    return new Promise((resolve, reject) => {
+      distribution[group].comm.send(
+        ["nid"],
+        { service: "status", method: "get" },
+        (e, v) => {
+          console.log(`HEALTH CHECK: ${group} - ${JSON.stringify(v)}`);
+          resolve(true);
+        }
+      );
+    });
+  };
   const init_group = (group, config) =>
     new Promise((resolve, reject) => {
       distribution.local.groups.put(config, group, (e, v) => {
@@ -80,6 +92,11 @@ distribution.node.start(async (server) => {
   await init_group(indexer_ranged_group, indexer_ranged_group_config);
   await init_group(querier_group, querier_group_config);
   console.log("GROUPS CREATED");
+  await healthCheack("crawler_group");
+  await healthCheack("indexer_group");
+  await healthCheack("indexer_ranged_group");
+  await healthCheack("querier_group");
+  console.log("GROUPS HEALTH CHECKED");
 
   const run_remote = (group_name, remote, args = []) =>
     new Promise((resolve, reject) => {
@@ -114,6 +131,9 @@ distribution.node.start(async (server) => {
   // #######################
   await new Promise((resolve, reject) => {
     const link = "/wiki/Cnidaria";
+    console.log(
+      `Adding link to crawl: ${link} to node ${JSON.stringify(get_nx(link))}`
+    );
     const remote = {
       node: get_nx(link),
       gid: "local",
@@ -137,37 +157,124 @@ distribution.node.start(async (server) => {
   // MANUAL CONTROL PANEL
   // ######################
   const do_query = true;
-  const query_string = "plant";
+  const query_string = "citrus";
 
   const do_crawl_and_indexing = false;
 
   if (do_query) {
     await new Promise((resolve, reject) => {
-      distribution.querier_group.querier.query_one("plant", async (e, v) => {
-        if (e) {
-          console.error("Query failed:", e);
-          return;
-        }
-        const results = v.map((result) => ({
-          binomialName: result.pageInfo.binomialName,
-          url: result.docId,
-          tf_idf: result.tf_idf,
-        }));
-        console.log(e, results);
+      distribution.querier_group.querier.query_one(
+        query_string,
+        async (e, v) => {
+          if (e) {
+            console.error("Query failed:", e);
+            return resolve();
+          }
 
-        // getting the data from the store
-        await new Promise((resolve, reject) => {
-          distribution.crawler_group.store.get(results[0].url, (e, v) => {
-            console.log(`${"#".repeat(v.title.length + 4)}`);
-            console.log(`# ${v.title} #`);
-            console.log(`${"#".repeat(v.title.length + 4)} \n`);
-            console.log(v.description);
-            resolve();
+          console.log("\n=== SEARCH METADATA ===");
+          console.log(`Query: "${v.query}"`);
+          console.log(`Terms searched for: ${v.terms.join(", ")}`);
+          console.log(`Total results found: ${v.totalResults}\n`);
+
+          if (!v.topResults || v.topResults.length === 0) {
+            console.log("No results found for this query.");
+            return resolve();
+          }
+
+          console.log("Top Results Summary:");
+          console.log("--------------------");
+          v.topResults.slice(0, 5).forEach((result, index) => {
+            // console.log(result);
+            const pageInfo = result.termDetails?.pageInfo || {};
+            console.log(
+              `${index + 1}. ${
+                pageInfo.binomialName.toUpperCase() || result.docId
+              }`
+            );
+            console.log(`   URL: https://www.wikipedia.org/${result.docId}`);
+            console.log(
+              `   Score: ${result.score.toFixed(4)} (matched ${
+                result.matchedTerms
+              }/${v.terms.length} terms)`
+            );
+            console.log(`   Kingdom: ${pageInfo.kingdom || "Unknown"}`);
+            console.log(`   Family: ${pageInfo.family || "Unknown"}`);
+
+            if (result.termDetails?.taxonomyLevel) {
+              console.log(
+                `  * BOOSTED!!! Taxonomy match: ${result.termDetails.taxonomyLevel}`
+              );
+            }
+
+            if (result.termDetails?.isBinomial) {
+              console.log(`   * BOOSTED!!! Term appears in binomial name`);
+            }
+            console.log("");
           });
-        });
 
-        resolve();
-      });
+          if (v.topResults.length > 0) {
+            // TODO: do we want to have displayed results for all of them?
+            const topResult = v.topResults[0];
+            try {
+              await new Promise((resolve2, reject2) => {
+                distribution.crawler_group.store.get(
+                  topResult.docId,
+                  (err, data) => {
+                    if (err) {
+                      console.error(
+                        "Error fetching detailed information:",
+                        err
+                      );
+                      return resolve2();
+                    }
+
+                    if (!data) {
+                      console.log(
+                        "No detailed information available for this result."
+                      );
+                      return resolve2();
+                    }
+
+                    const title = data.title || "Unknown Title";
+                    const headerLine = "#".repeat(title.length + 4);
+
+                    console.log(headerLine);
+                    console.log(`# ${title} #`);
+                    console.log(`${headerLine}\n`);
+
+                    if (data.binomial_name) {
+                      console.log(`Scientific name: ${data.binomial_name}`);
+                    }
+
+                    if (data.hierarchy && data.hierarchy.length > 0) {
+                      console.log("\nTaxonomic Classification:");
+                      data.hierarchy.forEach((entry) => {
+                        if (Array.isArray(entry) && entry.length === 2) {
+                          console.log(`  ${entry[0]}: ${entry[1]}`);
+                        }
+                      });
+                    }
+
+                    if (data.description) {
+                      console.log("\nDescription:");
+                      console.log(data.description);
+                    }
+
+                    resolve2();
+                  }
+                );
+              });
+            } catch (detailError) {
+              console.error(
+                "Error processing detailed information:",
+                detailError
+              );
+            }
+          }
+
+          resolve();
+        }
+      );
     });
   }
 
@@ -197,7 +304,7 @@ distribution.node.start(async (server) => {
         }
       } catch (err) {
         console.error("crawlLoop failed:", err);
-        setTimeout(crawl_loop, 1000);
+        setTimeout(crawl_loop, 10000);
       }
     };
 
@@ -256,6 +363,6 @@ distribution.node.start(async (server) => {
     }, 30000);
   }
 
-  // for(let i = 0; i < num_nodes; i++) await stop_nx(nodes[i]);
+  //   for (let i = 0; i < num_nodes; i++) await stop_nx(nodes[i]);
   server.close();
 });
