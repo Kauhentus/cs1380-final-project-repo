@@ -90,9 +90,11 @@ distribution.node.start(async (server) => {
     // MANUAL CONTROL PANEL 
     // ######################
     const do_query = false;
+    const do_range_query = true;
     const query_string = 'leafy sour';
+    const range_query_string = 'Anthozoa';
 
-    const do_crawl_and_indexing = true;
+    const do_crawl_and_indexing = false;
 
     if(do_query){
         await new Promise((resolve, reject) => {
@@ -115,6 +117,21 @@ distribution.node.start(async (server) => {
                     })
                 });
             
+                resolve();
+            });
+        });
+    }
+
+    if(do_range_query){
+        await new Promise((resolve, reject) => {
+            distribution.querier_group.querier.query_range(range_query_string, async (e, v) => {
+                const results = v;
+                console.log(e, results.length);
+
+                // 283 of hexacorallia
+                // 100 of octocorallia
+                // 386 of anthozoa
+
                 resolve();
             });
         });

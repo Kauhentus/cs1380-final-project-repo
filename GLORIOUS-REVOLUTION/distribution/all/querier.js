@@ -79,6 +79,35 @@ const querier = function (config) {
                     callback(null, results);
                 }
             );
+        },
+
+        query_range: (query, callback) => {
+          query = query.trim().toLowerCase();
+
+          function getChosenNode(key, nids, nodes) {
+            const kid = distribution.util.id.getID(key);
+            const chosenNID = distribution.util.id.naiveHash(kid, nids);
+            const chosenNode = nodes.find((nc) => distribution.util.id.getNID(nc) === chosenNID);
+            return chosenNode;
+          }
+
+          distribution.local.groups.get('indexer_ranged_group', async (e, v) => {
+            const nodes = Object.values(v);
+            const num_nodes = nodes.length;
+            const nids = nodes.map(node => distribution.util.id.getNID(node));
+            const chosen_node = getChosenNode(query, nids, nodes);
+
+            distribution.local.comm.send(
+              [ query, 0, [] ], 
+              { service: "querier", method: "query_range", node: chosen_node }, 
+              (err, val) => {
+                const output_species = val;
+                if(output_species.some(species => !species.includes('[SPECIES]'))) throw new Error("query_range compromised");
+                const processed_urls = output_species.map(species => species.slice(10));
+                callback(err, processed_urls);
+              }
+            );
+          });
         }
     };
 };

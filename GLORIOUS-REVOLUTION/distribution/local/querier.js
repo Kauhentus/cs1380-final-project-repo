@@ -105,7 +105,66 @@ function query_one(query, callback) {
   });
 }
 
+function query_range(query, depth, visited, callback) {
+  query = query.trim().toLowerCase();
+  
+  function getChosenNode(key, nids, nodes) {
+    const kid = distribution.util.id.getID(key);
+    const chosenNID = distribution.util.id.naiveHash(kid, nids);
+    const chosenNode = nodes.find((nc) => distribution.util.id.getNID(nc) === chosenNID);
+    return chosenNode;
+  }
+
+  const this_nid = distribution.util.id.getNID(global.nodeConfig);
+  const prefix = query.slice(0, 2);
+  const prefix_file = `./store/${this_nid}/indexer_ranged_group/${prefix}.json`;
+  const data = fs.readFileSync(prefix_file, 'utf8').split('\n')
+    .filter(line => line.trim() !== '')
+    .map(line => line.split(' => '))
+    .filter(line_parts => line_parts[0] === query);
+
+  const results = [];
+
+  (async () => {
+    const potential_new_queries = data.map(line_parts => line_parts[1]);
+    const new_results = potential_new_queries.filter(query => query.includes('[SPECIES]'));
+    
+    distribution.local.groups.get('indexer_ranged_group', async (e, v) => {
+
+      const new_queries = potential_new_queries
+        .filter(query => !query.includes('[SPECIES]'))
+        .filter(query => !visited.includes(query));
+      new_queries.map(query => visited.push(query));
+
+      const new_query_results = await Promise.all(new_queries.map((query) => new Promise((resolve, reject) => {
+
+        const nodes = Object.values(v);
+        const nids = nodes.map(node => distribution.util.id.getNID(node));
+        const chosen_node = getChosenNode(query, nids, nodes);
+
+        distribution.local.comm.send(
+          [ query, depth + 1, visited ], 
+          { service: "querier", method: "query_range", node: chosen_node }, 
+          (err, val) => {
+            if(Array.isArray(val)) {
+              resolve(val);
+            } else {
+              console.error(err);
+              resolve([]);
+            }
+          }
+        );
+      })));
+
+      results.push(...new_results);
+      results.push(...new_query_results.flat());
+      callback(null, results);
+    });
+  })();
+}
+
 module.exports = {
   initialize,
-  query_one
+  query_one,
+  query_range
 };
