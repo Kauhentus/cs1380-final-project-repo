@@ -11,6 +11,14 @@ const crawler = function (config) {
             );
         },
 
+        start_crawl: (callback) => {
+            distribution[context.gid].comm.send(
+                [],
+                { service: 'crawler', method: 'start_crawl' },
+                callback
+            );
+        },
+
         add_link_to_crawl: (name, callback) => {
             distribution[context.gid].comm.send(
                 [name],
@@ -27,9 +35,9 @@ const crawler = function (config) {
             );
         },
 
-        get_stats: (name, node, callback) => {
+        get_stats: (callback) => {
             distribution[context.gid].comm.send(
-                [name, node],
+                [],
                 { service: 'crawler', method: 'get_stats' },
                 callback
             );

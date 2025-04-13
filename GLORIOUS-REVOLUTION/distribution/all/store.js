@@ -94,6 +94,14 @@ function store(config) {
 
     reconf: (configuration, callback) => {
     },
+
+    clean_bulk_range_append: (callback) => {
+      distribution[context.gid].comm.send(
+          [],
+          { service: 'store', method: 'clean_bulk_range_append' },
+          callback
+      );
+  },
   };
 };
 

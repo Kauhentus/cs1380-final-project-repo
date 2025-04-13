@@ -280,4 +280,35 @@ function read_bulk(configuration, callback) {
   })();
 }
 
-module.exports = {put, get, del, bulk_append, read_bulk};
+function bulk_range_append(level, name, nextName, callback) {
+  const util = distribution.util;
+  const nodeConfig = global.nodeConfig;
+  const nodeID = util.id.getNID(nodeConfig);
+  const groupDir = path.join('store', nodeID, 'indexer_ranged_group');
+  if(!fs.existsSync(groupDir)) fs.mkdirSync(groupDir, { recursive: true });
+
+  const filePath = path.join(groupDir, `${name.slice(0, 2)}.json`);
+  fs.appendFileSync(filePath, `${name} => ${nextName}\n`);
+  callback(null, true);
+}
+
+function clean_bulk_range_append(callback) {
+  const util = distribution.util;
+  const nodeConfig = global.nodeConfig;
+  const nodeID = util.id.getNID(nodeConfig);
+  const groupDir = path.join('store', nodeID, 'indexer_ranged_group');
+  if(!fs.existsSync(groupDir)) fs.mkdirSync(groupDir, { recursive: true });
+
+  const bulk_ranges_on_node = fs.readdirSync(groupDir);
+  bulk_ranges_on_node.map((filename) => {
+    const filepath = path.join(groupDir, filename);
+    const data = fs.readFileSync(filepath, { encoding: 'utf8' });
+    const lines = data.split('\n');
+    const unique_lines = [...new Set(lines)]; // deduplicate lines
+    const new_data = unique_lines.join('\n');
+    fs.writeFileSync(filepath, new_data);
+  });
+  callback(null, true);
+}
+
+module.exports = {put, get, del, bulk_append, read_bulk, bulk_range_append, clean_bulk_range_append};

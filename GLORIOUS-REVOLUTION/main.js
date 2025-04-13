@@ -2,7 +2,7 @@ const { resolve } = require('path');
 const distribution = require('./config.js');
 const id = distribution.util.id;
 
-const num_nodes = 4;
+const num_nodes = 8;
 const nodes = [];
 
 const nids = [];
@@ -41,7 +41,7 @@ distribution.node.start(async (server) => {
 
     const get_nx = (link) => nodes[parseInt(id.getID(link).slice(0, 8), 16) % num_nodes];
 
-    // for(let i = 0; i < num_nodes; i++) await spawn_nx(nodes[i]);
+    for(let i = 0; i < num_nodes; i++) await spawn_nx(nodes[i]);
 
     // ##############
     // INITIALIZATION
@@ -89,10 +89,10 @@ distribution.node.start(async (server) => {
     // ######################
     // MANUAL CONTROL PANEL 
     // ######################
-    const do_query = true;
+    const do_query = false;
     const query_string = 'leafy sour';
 
-    const do_crawl_and_indexing = false;
+    const do_crawl_and_indexing = true;
 
     if(do_query){
         await new Promise((resolve, reject) => {
@@ -121,53 +121,68 @@ distribution.node.start(async (server) => {
     }
 
     if(do_crawl_and_indexing){
-        let max_iter = 10000;
-        let crawl_loop_iters = 0;
-        let index_loop_iters = 0;
-    
-        const crawl_one = () => new Promise((resolve, reject) => {
-            const remote = { gid: 'local', service: 'crawler', method: 'crawl_one'}
-            distribution.crawler_group.comm.send([], remote, (e, v) => {
-                crawl_loop_iters++;
-                resolve();
-            });
+
+        await new Promise((resolve, reject) => {
+            distribution.crawler_group.crawler.start_crawl((e, v) => resolve());
         });
-        const crawl_loop = async () => {
-            try {
-                while (crawl_loop_iters < max_iter) {
-                    if(crawl_loop_iters % 10 == 0) console.log(`crawler ${crawl_loop_iters}`);
-                    await crawl_one();
-                }
-            } catch (err) {
-                console.error('crawlLoop failed:', err);
-                setTimeout(crawl_loop, 1000);
-            }
-        }
-    
-        const index_one = () => new Promise((resolve, reject) => {
-            setTimeout(() => {
-                const remote = { gid: 'local', service: 'indexer', method: 'index_one'}
-                distribution.indexer_group.comm.send([], remote, (e, v) => {
-                    if(Object.values(v).some(data => data.status !== 'skipped')) index_loop_iters++;
-                    resolve();
+        await new Promise((resolve, reject) => {
+            distribution.crawler_group.indexer.start_index((e, v) => resolve());
+        });
+        await new Promise((resolve, reject) => {
+            distribution.crawler_group.indexer_ranged.start_index((e, v) => resolve());
+        });
+
+        const log_stats = () => {
+            distribution.crawler_group.crawler.get_stats((e, v1) => {
+                distribution.indexer_group.indexer.get_stats((e, v2) => {
+                    distribution.indexer_ranged_group.indexer_ranged.get_stats((e, v3) => {
+                        let total_links_to_crawl = 0;
+                        let total_crawled_links = 0;
+                        let crawler_throughput = 0;
+                        Object.keys(v1).map(key => {
+                            total_links_to_crawl += v1[key].links_to_crawl || 0;
+                            total_crawled_links += v1[key].crawled_links || 0;
+                            crawler_throughput += (v1[key].metrics.crawling.pagesProcessed / (v1[key].metrics.crawling.totalCrawlTime / 1000)) || 0;
+                        });
+                        console.log(`CRAWLER_STATS:`);
+                        console.log(`  links_to_crawl = ${total_links_to_crawl}`);
+                        console.log(`  crawled_links = ${total_crawled_links}`);
+                        console.log(`  throughput = ${crawler_throughput} pages/sec`);
+
+                        let total_links_to_index = 0;
+                        let total_indexed_links = 0;
+                        let indexer_throughput = 0;
+                        Object.keys(v2).map(key => {
+                            total_links_to_index += v2[key].links_to_index || 0;
+                            total_indexed_links += v2[key].indexed_links || 0;
+                            indexer_throughput += (v2[key].metrics.documentsIndexed / (v2[key].metrics.totalIndexTime / 1000)) || 0;
+                        });
+                        console.log(`INDEXER_STATS:`);
+                        console.log(`  links_to_index = ${total_links_to_index}`);
+                        console.log(`  indexed_links = ${total_indexed_links}`);
+                        console.log(`  throughput = ${indexer_throughput} pages/sec`);
+
+                        let total_links_to_range_index = 0;
+                        let total_range_indexed_links = 0;
+                        let range_indexer_throughput = 0;
+                        Object.keys(v3).map(key => {
+                            total_links_to_range_index += v3[key].links_to_range_index || 0;
+                            total_range_indexed_links += v3[key].range_indexed_links || 0;
+                            range_indexer_throughput += (v3[key].metrics.documentsIndexed / (v3[key].metrics.totalIndexTime / 1000)) || 0;
+                        });
+                        console.log(`RANGE_INDEXER_STATS:`);
+                        console.log(`  links_to_range_index = ${total_links_to_range_index}`);
+                        console.log(`  range_indexed_links = ${total_range_indexed_links}`);
+                        console.log(`  throughput = ${range_indexer_throughput} pages/sec`);
+                        console.log('');
+                    });
                 });
-            }, 100);
-        });
-        const index_loop = async () => {
-            try {
-                while (index_loop_iters < max_iter) {
-                    if(index_loop_iters % 10 == 0) console.log(`indexer ${index_loop_iters}`);
-                    await index_one();
-                }
-            } catch (err) {
-                console.error('indexLoop failed:', err);
-                setTimeout(index_loop, 1000);
-            }
+            });
         }
-    
-        crawl_loop();
-        index_loop();
-    
+        setInterval(() => log_stats(), 10000);
+        log_stats();
+
+
         setTimeout(async () => {
             await new Promise((resolve, reject) => {
                 const remote = { gid: 'local', service: 'crawler', method: 'save_maps_to_disk'}
@@ -181,7 +196,13 @@ distribution.node.start(async (server) => {
                     resolve();
                 });
             });
-        }, 30000);
+            await new Promise((resolve, reject) => {
+                const remote = { gid: 'local', service: 'indexer_ranged', method: 'save_maps_to_disk'}
+                distribution.indexer_group.comm.send([], remote, (e, v) => {
+                    resolve();
+                });
+            });
+        }, 10000);
     }
 
     // for(let i = 0; i < num_nodes; i++) await stop_nx(nodes[i]);

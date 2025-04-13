@@ -11,6 +11,14 @@ const indexer = function (config) {
             );
         },
 
+        start_index: (callback) => {
+            distribution[context.gid].comm.send(
+                [],
+                { service: 'indexer', method: 'start_index' },
+                callback
+            );
+        },
+
         add_link_to_crawl: (name, callback) => {
             distribution[context.gid].comm.send(
                 [name],
@@ -31,6 +39,14 @@ const indexer = function (config) {
             distribution[context.gid].comm.send(
                 [],
                 { service: 'indexer', method: 'get_idf_doc_count' },
+                callback
+            );
+        },
+
+        get_stats: (callback) => {
+            distribution[context.gid].comm.send(
+                [],
+                { service: 'indexer', method: 'get_stats' },
                 callback
             );
         },

@@ -13,7 +13,6 @@ const cb = (e, v) => {
 };
 
 let metrics = null;
-let metricsInterval = null;
 const log_index = false;
 
 function initialize(callback) {
@@ -94,6 +93,33 @@ function initialize(callback) {
   });
 }
 
+function start_index(callback) {
+  callback = callback || cb;
+
+  const index_loop = async () => {
+    try {
+      while (true) {
+        await new Promise((resolve, reject) => {
+          distribution.local.indexer.index_one((e, v) => {
+            if(e || ('status' in v && v.status !== 'success')) {
+              setTimeout(() => {
+                resolve();
+              }, 1000);
+            } else {
+              resolve();
+            }
+          })
+        });
+      }
+    } catch (err) {
+      console.error('crawlLoop failed:', err);
+      setTimeout(index_loop, 1000);
+    }
+  }
+  index_loop();
+
+  callback(null, true);
+}
 
 function add_link_to_index(link, callback) {
   callback = callback || cb;
@@ -351,7 +377,8 @@ function index_one(callback) {
           metrics.totalPrefixesProcessed += prefixGroups.size || 0;
           metrics.batchesSent += totalBatches || 0;
           metrics.processing_times.push(indexing_time);
-          console.log(`TOTAL INDEXING TIME: ${indexing_time}ms`);
+          // console.log(`TOTAL INDEXING TIME: ${indexing_time}ms`);
+          fs.appendFileSync(global.logging_path, `TOTAL INDEXING TIME: ${indexing_time}ms\n`);
           // console.log(`    step 1 : ${timecheck_1 - index_start_time}ms`);
           // console.log(`    step 2 : ${timecheck_2 - timecheck_1}ms`);
           // console.log(`    step 3 : ${timecheck_3 - timecheck_2}ms`);
@@ -377,6 +404,23 @@ function get_idf_doc_count(callback) {
   callback(null, { num_docs_on_node: num_docs_on_node });
 }
 
+function get_stats(callback) {
+  callback = callback || cb;
+
+  distribution.local.mem.get('links_to_index_map', (e1, links_to_index_map) => {
+    distribution.local.mem.get('indexed_links_map', (e2, indexed_links_map) => {
+
+      const stats = {
+        links_to_index: links_to_index_map.size,
+        indexed_links: indexed_links_map.size,
+        metrics: metrics
+      };
+
+      callback(null, stats);
+    });
+  });
+}
+
 function save_maps_to_disk(callback) {
   callback = callback || cb;
 
@@ -400,8 +444,10 @@ function save_maps_to_disk(callback) {
 
 module.exports = {
   initialize,
+  start_index,
   add_link_to_index,
   get_idf_doc_count,
   save_maps_to_disk,
+  get_stats,
   index_one
 };

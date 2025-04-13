@@ -13,7 +13,6 @@ const cb = (e, v) => {
 };
 
 let metrics = null;
-let metricsInterval = null;
 let stopWordsSet = require('../util/stopwords');;
 
 function initialize(callback) {
@@ -110,6 +109,35 @@ function initialize(callback) {
     });
   });
 }
+
+function start_crawl(callback) {
+  callback = callback || cb;
+
+  const crawl_loop = async () => {
+    try {
+      while (true) {
+        await new Promise((resolve, reject) => {
+          distribution.local.crawler.crawl_one((e, v) => {
+            if(e || ('status' in v && v.status !== 'success')) {
+              setTimeout(() => {
+                resolve();
+              }, 1000);
+            } else {
+              resolve();
+            }
+          })
+        });
+      }
+    } catch (err) {
+      console.error('crawlLoop failed:', err);
+      setTimeout(crawl_loop, 1000);
+    }
+  }
+  crawl_loop();
+
+  callback(null, true);
+}
+
 
 function add_link_to_crawl(link, callback) {
   callback = callback || cb;
@@ -276,7 +304,7 @@ function crawl_one(callback) {
                   const remote_2 = { node: get_nx(url), service: 'indexer_ranged', method: 'add_link_to_index' };
                   distribution.local.comm.send([url], remote_1, (e, v) => {
                     distribution.local.comm.send([url], remote_2, (e, v) => {
-                      callback();
+                      callback(null, { status: 'success' });
                     });
                   });
 
@@ -289,7 +317,7 @@ function crawl_one(callback) {
           else {
             result.indexing = { status: 'skipped', reason: 'not_target_or_no_binomial' };
             processCrawlResult(url, links_on_page, result, crawlStartTime, is_target_class, () => {
-              callback();
+              callback(null, { status: 'success' });
             });
           }
         })
@@ -406,6 +434,7 @@ function save_maps_to_disk(callback) {
 
 module.exports = {
   initialize,
+  start_crawl,
   add_link_to_crawl,
   crawl_one,
   get_stats,
