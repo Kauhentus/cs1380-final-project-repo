@@ -131,8 +131,9 @@ function query_one(queryConfiguration, callback) {
 }
 
 
-function query_range(query, depth, visited, callback) {
+function query_range(query, depth, visited, options, callback) {
   query = query.trim().toLowerCase();
+  const return_tree = options.return_tree || false;
   
   function getChosenNode(key, nids, nodes) {
     const kid = distribution.util.id.getID(key);
@@ -149,7 +150,7 @@ function query_range(query, depth, visited, callback) {
     .map(line => line.split(' => '))
     .filter(line_parts => line_parts[0] === query);
 
-  const results = [];
+  const results = return_tree ? {} : [];
 
   (async () => {
     const potential_new_queries = data.map(line_parts => line_parts[1]);
@@ -169,21 +170,28 @@ function query_range(query, depth, visited, callback) {
         const chosen_node = getChosenNode(query, nids, nodes);
 
         distribution.local.comm.send(
-          [ query, depth + 1, visited ], 
+          [ query, depth + 1, visited, options ], 
           { service: "querier", method: "query_range", node: chosen_node }, 
           (err, val) => {
-            if(Array.isArray(val)) {
+            if(typeof val === 'object') {
               resolve(val);
             } else {
               console.error(err);
-              resolve([]);
+              resolve(return_tree ? {} : []);
             }
           }
         );
       })));
 
-      results.push(...new_results);
-      results.push(...new_query_results.flat());
+      if (return_tree) {
+        results.name = query;
+        results.children = new_query_results;
+        new_results.map(query => results.children.push({ name: query, is_species: true }))
+      } else {
+        results.push(...new_results);
+        results.push(...new_query_results.flat());
+      }
+      
       callback(null, results);
     });
   })();

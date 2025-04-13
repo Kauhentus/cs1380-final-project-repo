@@ -1,6 +1,7 @@
 const { resolve } = require('path');
 const distribution = require('./config.js');
 const id = distribution.util.id;
+const chalk = require('chalk');
 
 const num_nodes = 8;
 const spawn_nodes_locally = false;
@@ -104,10 +105,12 @@ distribution.node.start(async (server) => {
   // ######################
   // MANUAL CONTROL PANEL 
   // ######################
-  const do_query = true;
-  const do_range_query = false;
+  const do_query = false;
   const query_string = 'aquatic water seed';
-  const range_query_string = 'Anthozoa'; // Angiosperms, Rosids, Anthozoa
+
+  const do_range_query = true;
+  const range_query_string = 'Cnidaria'; // Angiosperms, Rosids, Anthozoa
+  const range_query_tree = true;
 
   const do_crawl_and_indexing = false;
 
@@ -228,17 +231,52 @@ distribution.node.start(async (server) => {
 
   if (do_range_query) {
     await new Promise((resolve, reject) => {
-      distribution.querier_group.querier.query_range(range_query_string, {}, async (e, v) => {
+      distribution.querier_group.querier.query_range(range_query_string, { return_tree: range_query_tree }, async (e, v) => {
         if(e) return resolve('Invalid range query string');
         const results = v;
 
-        let headline = `RANGE QUERY: ${range_query_string} (${results.length} results)`;
-        console.log(headerLine(headline));
-        console.log(`# ${headline} #`);
-        console.log(headerLine(headline), '\n');
+        if(range_query_tree){
+          const collapse_species = false;
 
-        results.slice(0, 8).map((result, i) => console.log(`${`${i + 1}`.padStart(3, ' ')}. ${result}`));
-        if (results.length > 8) console.log(`... and ${results.length - 10} more results`);
+          const recursive_print = (node, depth, is_last_child = true, prefix = '') => {
+            const is_species = node.is_species;
+            const has_children = node.children && node.children.length > 0;
+            const num_species_children = has_children ? node.children.filter(child => child.is_species).length : 0;
+            const name_formatted = (is_species ? chalk.ansi256(219)('*') + `${node.name.replace('[SPECIES] /wiki/', ' ')}` : node.name) + (collapse_species && num_species_children > 0 ? ` (${num_species_children})` : '')
+            const name_formatted_color = is_species ? chalk.green(name_formatted) : chalk.ansi256(191)(name_formatted);
+
+            const branch_ansi = chalk.ansi256(180);
+
+            if(depth == 0) console.log(' '.repeat(depth * 2) + name_formatted_color);
+            else console.log(prefix + (is_last_child ? branch_ansi('└─') : branch_ansi('├─')) + name_formatted_color);
+
+            const new_prefix = prefix + (is_last_child ? '   ' : branch_ansi('│  '));
+
+            if (node.children) {
+              node.children.sort((a, b) => {
+                if (a.is_species && !b.is_species) return 1;
+                if (!a.is_species && b.is_species) return -1;
+                return a.name.localeCompare(b.name);
+              });
+              node.children.map((child, i) => {
+                if(collapse_species && child.is_species) return;
+                recursive_print(child, depth + 1, i === node.children.length - 1, new_prefix)
+              });
+            }
+          }
+          recursive_print(results, 0);
+        }
+
+        else {
+          let headline = `RANGE QUERY: ${range_query_string} (${results.length} results)`;
+          console.log(headerLine(headline));
+          console.log(`# ${headline} #`);
+          console.log(headerLine(headline), '\n');
+  
+          results.slice(0, 8).map((result, i) => console.log(`${`${i + 1}`.padStart(3, ' ')}. ${result}`));
+          if (results.length > 8) console.log(`... and ${results.length - 10} more results`);
+  
+        }
 
         resolve();
       });

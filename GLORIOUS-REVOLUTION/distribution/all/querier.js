@@ -202,6 +202,7 @@ const querier = function (config) {
 
         query_range: (query, options, callback) => {
           query = query.trim().toLowerCase();
+          const return_tree = options.return_tree || false;
 
           function getChosenNode(key, nids, nodes) {
             const kid = distribution.util.id.getID(key);
@@ -217,15 +218,21 @@ const querier = function (config) {
             const chosen_node = getChosenNode(query, nids, nodes);
 
             distribution.local.comm.send(
-              [ query, 0, [] ], 
+              [ query, 0, [], options ], 
               { service: "querier", method: "query_range", node: chosen_node }, 
               (err, val) => {
                 if(err) return callback(err);
 
-                const output_species = val;
-                if(output_species.some(species => !species.includes('[SPECIES]'))) throw new Error("query_range compromised");
-                const processed_urls = output_species.map(species => species.slice(10));
-                callback(null, processed_urls);
+                if(return_tree) {
+                    callback(err, val)
+                } 
+                
+                else {
+                    const output_species = val;
+                    if(output_species.some(species => !species.includes('[SPECIES]'))) throw new Error("query_range compromised");
+                    const processed_urls = output_species.map(species => species.slice(10));
+                    callback(null, processed_urls);
+                }
               }
             );
           });
