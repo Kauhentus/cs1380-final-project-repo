@@ -134,7 +134,7 @@ distribution.node.start(async (server) => {
   });
   stopSpinner();
   console.log("\x1b[32m✓\x1b[0m Services initialized");
-  console.log("\x1b[32m✓\x1b[0m Distributed search engine is ready!\n");
+  console.log("\x1b[32m✓\x1b[0m Distributed search engine is ready!");
 
   startSpinner("Adding initial seed link");
   // TODO: idk if u agree here, but i started with all categories so we cover all for the initial seed links
@@ -858,6 +858,56 @@ distribution.node.start(async (server) => {
   );
   console.log("Background crawling and indexing has been enabled!");
   console.log("Type 'help' to see available commands");
+  console.log("\x1b[33mStarting background crawling and indexing...\x1b[0m\n");
+
+  distribution.crawler_group.crawler.start_crawl((e, v) => {});
+  distribution.indexer_group.indexer.start_index((e, v) => {});
+  distribution.indexer_ranged_group.indexer_ranged.start_index((e, v) => {});
+  setTimeout(() => main_metric_loop(), 3000);
+
+  setInterval(async () => {
+    try {
+      await Promise.all([
+        new Promise((resolve, reject) => {
+          const remote = {
+            gid: "local",
+            service: "crawler",
+            method: "save_maps_to_disk",
+          };
+          distribution.crawler_group.comm.send([], remote, (e, v) => {
+            resolve();
+          });
+        }),
+        new Promise((resolve, reject) => {
+          const remote = {
+            gid: "local",
+            service: "indexer",
+            method: "save_maps_to_disk",
+          };
+          distribution.indexer_group.comm.send([], remote, (e, v) => {
+            resolve();
+          });
+        }),
+        new Promise((resolve, reject) => {
+          const remote = {
+            gid: "local",
+            service: "indexer_ranged",
+            method: "save_maps_to_disk",
+          };
+          distribution.indexer_ranged_group.comm.send([], remote, (e, v) => {
+            resolve();
+          });
+        }),
+      ]);
+
+      console.log("\x1b[2m[System] State saved automatically\x1b[0m");
+    } catch (error) {
+      console.error(
+        "\x1b[31m[System] Error during automatic state saving:\x1b[0m",
+        error
+      );
+    }
+  }, 120000);
   rl.prompt();
 
   rl.on("line", async (line) => {
@@ -957,7 +1007,7 @@ distribution.node.start(async (server) => {
         const CYAN = "\x1b[36m";
         const WHITE = "\x1b[37m";
 
-        const BG_MAGENTA = "\x1b[45m";
+        const BG_MAGENTA = "\x1b[42m";
 
         // Header styling function
         const header = (text) => {
@@ -1323,55 +1373,4 @@ distribution.node.start(async (server) => {
     // TODO: Should I add a loop here to close the nodes
     process.exit(0);
   });
-
-  console.log("\x1b[33mStarting background crawling and indexing...\x1b[0m\n");
-
-  distribution.crawler_group.crawler.start_crawl((e, v) => {});
-  distribution.indexer_group.indexer.start_index((e, v) => {});
-  distribution.indexer_ranged_group.indexer_ranged.start_index((e, v) => {});
-  setTimeout(() => main_metric_loop(), 3000);
-
-  setInterval(async () => {
-    try {
-      await Promise.all([
-        new Promise((resolve, reject) => {
-          const remote = {
-            gid: "local",
-            service: "crawler",
-            method: "save_maps_to_disk",
-          };
-          distribution.crawler_group.comm.send([], remote, (e, v) => {
-            resolve();
-          });
-        }),
-        new Promise((resolve, reject) => {
-          const remote = {
-            gid: "local",
-            service: "indexer",
-            method: "save_maps_to_disk",
-          };
-          distribution.indexer_group.comm.send([], remote, (e, v) => {
-            resolve();
-          });
-        }),
-        new Promise((resolve, reject) => {
-          const remote = {
-            gid: "local",
-            service: "indexer_ranged",
-            method: "save_maps_to_disk",
-          };
-          distribution.indexer_ranged_group.comm.send([], remote, (e, v) => {
-            resolve();
-          });
-        }),
-      ]);
-
-      console.log("\x1b[2m[System] State saved automatically\x1b[0m");
-    } catch (error) {
-      console.error(
-        "\x1b[31m[System] Error during automatic state saving:\x1b[0m",
-        error
-      );
-    }
-  }, 120000);
 });
