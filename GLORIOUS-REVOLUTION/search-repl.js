@@ -143,19 +143,7 @@ distribution.node.start(async (server) => {
     });
   };
   startSpinner("Adding initial seed link");
-  //   await new Promise((resolve) => {
-  //     const link = "/wiki/Cnidaria";
-  //     distribution.local.comm.send(
-  //       [link],
-  //       {
-  //         node: get_nx(link),
-  //         gid: "local",
-  //         service: "crawler",
-  //         method: "add_link_to_crawl",
-  //       },
-  //       () => resolve()
-  //     );
-  //   });
+  // TODO: idk if u agree here, but i started with all categories so we cover all for the initial seed links
   await seedLink("/wiki/Cnidaria");
   await seedLink("/wiki/Plant");
   await seedLink("/wiki/Lepidoptera");
@@ -164,7 +152,6 @@ distribution.node.start(async (server) => {
     "\x1b[32m✓\x1b[0m Added initial seed links for \x1b[32mPlants\x1b[0m, \x1b[34mSealife\x1b[0m, and \x1b[35mButterflies\x1b[0m!"
   );
 
-  // Utility functions
   const headerLine = (text) => "=".repeat(text.length + 4);
   const formatTime = (ms) => {
     if (ms < 1000) return `${ms}ms`;
@@ -456,7 +443,7 @@ distribution.node.start(async (server) => {
     });
   };
 
-  const aggregateStats = () => {
+  async function aggregateStats() {
     const aggregatedStats = {
       crawling: {
         docsInQueue: 0,
@@ -484,89 +471,85 @@ distribution.node.start(async (server) => {
         throughput: 0,
       },
     };
-    distribution.crawler_group.crawler.get_stats((e, v1) => {
-      distribution.indexer_group.indexer.get_stats((e, v2) => {
-        distribution.indexer_ranged_group.indexer_ranged.get_stats((e, v3) => {
-          //   let total_links_to_crawl = 0;
-          //   let total_crawled_links = 0;
-          //   let crawler_throughput = 0;
-          Object.keys(v1).map((key) => {
-            aggregatedStats.crawling.docsInQueue += v1[key].links_to_crawl;
-            const nodeMetrics = v1[key].metrics.crawling;
-            if (nodeMetrics) {
-              aggregatedStats.crawling.totalCrawlTime +=
-                nodeMetrics.totalCrawlTime || 0;
-              aggregatedStats.crawling.pagesProcessed +=
-                nodeMetrics.pagesProcessed || 0;
-              aggregatedStats.crawling.targetsHit +=
-                nodeMetrics.targetsHit || 0;
-              aggregatedStats.crawling.throughput +=
-                nodeMetrics.pagesProcessed /
-                  (nodeMetrics.totalCrawlTime / 1000) || 0;
-            }
-          });
+    await new Promise((resolve, reject) => {
+      distribution.crawler_group.crawler.get_stats((e, v1) => {
+        distribution.indexer_group.indexer.get_stats((e, v2) => {
+          distribution.indexer_ranged_group.indexer_ranged.get_stats(
+            (e, v3) => {
+              Object.keys(v1).map((key) => {
+                aggregatedStats.crawling.docsInQueue += v1[key].links_to_crawl;
+                const nodeMetrics = v1[key].metrics.crawling;
+                if (nodeMetrics) {
+                  aggregatedStats.crawling.totalCrawlTime +=
+                    nodeMetrics.totalCrawlTime || 0;
+                  aggregatedStats.crawling.pagesProcessed +=
+                    nodeMetrics.pagesProcessed || 0;
+                  aggregatedStats.crawling.targetsHit +=
+                    nodeMetrics.targetsHit || 0;
+                  aggregatedStats.crawling.throughput +=
+                    nodeMetrics.pagesProcessed /
+                      (nodeMetrics.totalCrawlTime / 1000) || 0;
+                }
+              });
 
-          console.log(`CRAWLER_STATS:`);
-          console.log(JSON.stringify(aggregatedStats.crawling));
-          //   console.log(`  links_to_crawl = ${total_links_to_crawl}`);
-          //   console.log(`  crawled_links = ${total_crawled_links}`);
-          //   console.log(`  throughput = ${crawler_throughput} pages/sec`);
-          console.log("");
+              console.log(`CRAWLER_STATS:`);
+              console.log(JSON.stringify(aggregatedStats.crawling));
+              console.log("");
 
-          //   let total_links_to_index = 0;
-          //   let total_indexed_links = 0;
-          //   let indexer_throughput = 0;
-          Object.keys(v2).map((key) => {
-            aggregatedStats.indexing.docsInQueue += v2[key].links_to_index;
-            const nodeMetrics = v2[key].metrics;
-            if (nodeMetrics) {
-              aggregatedStats.indexing.totalIndexTime +=
-                nodeMetrics.totalIndexTime || 0;
-              aggregatedStats.indexing.documentsIndexed +=
-                nodeMetrics.documentsIndexed || 0;
-              aggregatedStats.indexing.totalTermsProcessed +=
-                nodeMetrics.totalTermsProcessed || 0;
-              aggregatedStats.indexing.totalPrefixesProcessed = Math.min(
-                (nodeMetrics.totalPrefixesProcessed || 0) +
-                  aggregatedStats.indexing.totalPrefixesProcessed,
-                6160
-              );
-              aggregatedStats.indexing.throughput +=
-                nodeMetrics.documentsIndexed /
-                  (nodeMetrics.totalIndexTime / 1000) || 0;
-            }
-          });
-          console.log(`INDEXER_STATS:`);
-          console.log(JSON.stringify(aggregatedStats.indexing));
-          //   console.log(`  links_to_index = ${total_links_to_index}`);
-          //   console.log(`  indexed_links = ${total_indexed_links}`);
-          //   console.log(`  throughput = ${indexer_throughput} pages/sec`);
-          console.log("");
+              Object.keys(v2).map((key) => {
+                aggregatedStats.indexing.docsInQueue += v2[key].links_to_index;
+                const nodeMetrics = v2[key].metrics;
+                if (nodeMetrics) {
+                  aggregatedStats.indexing.totalIndexTime +=
+                    nodeMetrics.totalIndexTime || 0;
+                  aggregatedStats.indexing.documentsIndexed +=
+                    nodeMetrics.documentsIndexed || 0;
+                  aggregatedStats.indexing.totalTermsProcessed +=
+                    nodeMetrics.totalTermsProcessed || 0;
+                  aggregatedStats.indexing.totalPrefixesProcessed = Math.min(
+                    (nodeMetrics.totalPrefixesProcessed || 0) +
+                      aggregatedStats.indexing.totalPrefixesProcessed,
+                    6160
+                  );
+                  aggregatedStats.indexing.throughput +=
+                    nodeMetrics.documentsIndexed /
+                      (nodeMetrics.totalIndexTime / 1000) || 0;
+                }
+              });
+              console.log(`INDEXER_STATS:`);
+              console.log(JSON.stringify(aggregatedStats.indexing));
+              //   console.log(`  links_to_index = ${total_links_to_index}`);
+              //   console.log(`  indexed_links = ${total_indexed_links}`);
+              //   console.log(`  throughput = ${indexer_throughput} pages/sec`);
+              console.log("");
 
-          Object.keys(v3).map((key) => {
-            aggregatedStats.rangeIndex.docsInQueue =
-              v3[key].links_to_range_index;
-            const nodeMetrics = v3[key].metrics;
-            if (nodeMetrics) {
-              aggregatedStats.rangeIndex.totalIndexTime +=
-                nodeMetrics.totalIndexTime || 0;
-              aggregatedStats.rangeIndex.documentsIndexed +=
-                nodeMetrics.documentsIndexed || 0;
-              aggregatedStats.rangeIndex.throughput +=
-                nodeMetrics.documentsIndexed /
-                  (nodeMetrics.totalIndexTime / 1000) || 0;
+              Object.keys(v3).map((key) => {
+                aggregatedStats.rangeIndex.docsInQueue =
+                  v3[key].links_to_range_index;
+                const nodeMetrics = v3[key].metrics;
+                if (nodeMetrics) {
+                  aggregatedStats.rangeIndex.totalIndexTime +=
+                    nodeMetrics.totalIndexTime || 0;
+                  aggregatedStats.rangeIndex.documentsIndexed +=
+                    nodeMetrics.documentsIndexed || 0;
+                  aggregatedStats.rangeIndex.throughput +=
+                    nodeMetrics.documentsIndexed /
+                      (nodeMetrics.totalIndexTime / 1000) || 0;
+                }
+              });
+              console.log(`RANGE_INDEXER_STATS:`);
+              console.log(JSON.stringify(aggregatedStats.rangeIndex));
+              //   console.log(`  links_to_range_index = ${total_links_to_range_index}`);
+              //   console.log(`  range_indexed_links = ${total_range_indexed_links}`);
+              //   console.log(`  throughput = ${range_indexer_throughput} pages/sec`);
+              console.log("");
+              resolve(aggregatedStats);
             }
-          });
-          console.log(`RANGE_INDEXER_STATS:`);
-          console.log(JSON.stringify(aggregatedStats.rangeIndex));
-          //   console.log(`  links_to_range_index = ${total_links_to_range_index}`);
-          //   console.log(`  range_indexed_links = ${total_range_indexed_links}`);
-          //   console.log(`  throughput = ${range_indexer_throughput} pages/sec`);
-          console.log("");
+          );
         });
       });
     });
-  };
+  }
 
   // Setup the REPL interface
   const rl = readline.createInterface({
@@ -575,7 +558,9 @@ distribution.node.start(async (server) => {
     prompt: "\x1b[36msearch>\x1b[0m ",
   });
 
-  console.log("\n\x1b[1;35m===== Distributed Search Engine REPL =====\x1b[0m");
+  console.log(
+    "\n\x1b[1;35m===== (TAXI🚕) Distributed Search Engine REPL =====\x1b[0m"
+  );
   console.log("Background crawling and indexing has been enabled!");
   console.log("Type 'help' to see available commands");
   rl.prompt();
@@ -617,36 +602,24 @@ distribution.node.start(async (server) => {
       // Display system statistics
       try {
         startSpinner("Collecting system statistics");
-
-        const [crawlerStats, indexerStats] = await Promise.all([
-          new Promise((resolve) => {
-            distribution.crawler_group.crawler.get_stats(null, (err, stats) => {
-              if (err) {
-                console.error("Error getting crawler stats:", err);
-                resolve({});
-              } else {
-                resolve(stats);
-              }
-            });
-          }),
-          new Promise((resolve) => {
-            if (distribution.indexer_group.indexer.get_stats) {
-              distribution.indexer_group.indexer.get_stats(
-                null,
-                (err, stats) => {
-                  if (err) {
-                    console.error("Error getting indexer stats:", err);
-                    resolve({});
-                  } else {
-                    resolve(stats);
+        startSpinner("Stopping background processes", 2);
+        await new Promise((resolve, reject) => {
+          distribution.crawler_group.crawler.set_service_state(true, (e, v) => {
+            distribution.indexer_group.indexer.set_service_state(
+              true,
+              (e, v) => {
+                distribution.indexer_ranged_group.indexer_ranged.set_service_state(
+                  true,
+                  (e, v) => {
+                    resolve();
                   }
-                }
-              );
-            } else {
-              resolve({});
-            }
-          }),
-        ]);
+                );
+              }
+            );
+          });
+        });
+
+        const systemStats = await aggregateStats();
 
         stopSpinner();
 
@@ -657,20 +630,18 @@ distribution.node.start(async (server) => {
 
         // Background processing stats
         console.log(`\nBackground Processing:`);
-        console.log(`  Crawl operations: ${crawlCount}`);
-        console.log(`  Index operations: ${indexCount}`);
+        console.log(
+          `  Crawl operations: ${systemStats.crawling.pagesProcessed}`
+        );
+        console.log(
+          `  Index operations: ${systemStats.indexing.documentsIndexed}`
+        );
 
         // Crawler stats
         console.log("\nCrawler Statistics:");
-        let totalPagesCrawled = 0;
-        let totalLinksQueued = 0;
-
-        for (const nodeId in crawlerStats) {
-          if (crawlerStats[nodeId]) {
-            totalPagesCrawled += crawlerStats[nodeId].crawled_links || 0;
-            totalLinksQueued += crawlerStats[nodeId].links_to_crawl || 0;
-          }
-        }
+        const crawlerStats = systemStats.crawling;
+        const totalPagesCrawled = crawlerStats.pagesProcessed || 0;
+        const totalLinksQueued = crawlerStats.docsInQueue || 0;
 
         console.log(`  Pages crawled: ${totalPagesCrawled}`);
         console.log(`  Links in queue: ${totalLinksQueued}`);
@@ -817,64 +788,64 @@ distribution.node.start(async (server) => {
   console.log("\x1b[33mStarting background crawling and indexing...\x1b[0m");
 
   // Background crawling process
-  (async function crawlLoop() {
-    try {
-      await new Promise((resolve) => {
-        distribution.crawler_group.comm.send(
-          [],
-          { gid: "local", service: "crawler", method: "crawl_one" },
-          (e, v) => {
-            if (e && !isEmptyObject(e)) {
-              console.error("Crawl error:", e);
-            } else if (
-              v &&
-              Object.values(v).some((r) => r && r.status === "success")
-            ) {
-              crawlCount++;
-            }
-            resolve();
-          }
-        );
-      });
+  // (async function crawlLoop() {
+  //   try {
+  //     await new Promise((resolve) => {
+  //       distribution.crawler_group.comm.send(
+  //         [],
+  //         { gid: "local", service: "crawler", method: "crawl_one" },
+  //         (e, v) => {
+  //           if (e && !isEmptyObject(e)) {
+  //             console.error("Crawl error:", e);
+  //           } else if (
+  //             v &&
+  //             Object.values(v).some((r) => r && r.status === "success")
+  //           ) {
+  //             crawlCount++;
+  //           }
+  //           resolve();
+  //         }
+  //       );
+  //     });
 
-      // Throttle to prevent overloading
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      crawlLoop();
-    } catch (err) {
-      console.error("Crawl loop error:", err);
-      setTimeout(crawlLoop, 5000); // Retry after 5 seconds on error
-    }
-  })();
+  //     // Throttle to prevent overloading
+  //     await new Promise((resolve) => setTimeout(resolve, 200));
+  //     crawlLoop();
+  //   } catch (err) {
+  //     console.error("Crawl loop error:", err);
+  //     setTimeout(crawlLoop, 5000); // Retry after 5 seconds on error
+  //   }
+  // })();
 
-  // Background indexing process
-  (async function indexLoop() {
-    try {
-      await new Promise((resolve) => {
-        distribution.indexer_group.comm.send(
-          [],
-          { gid: "local", service: "indexer", method: "index_one" },
-          (e, v) => {
-            if (e && !isEmptyObject(e)) {
-              console.error("Index error:", e);
-            } else if (
-              v &&
-              Object.values(v).some((data) => data && data.status !== "skipped")
-            ) {
-              indexCount++;
-            }
-            resolve();
-          }
-        );
-      });
+  // // Background indexing process
+  // (async function indexLoop() {
+  //   try {
+  //     await new Promise((resolve) => {
+  //       distribution.indexer_group.comm.send(
+  //         [],
+  //         { gid: "local", service: "indexer", method: "index_one" },
+  //         (e, v) => {
+  //           if (e && !isEmptyObject(e)) {
+  //             console.error("Index error:", e);
+  //           } else if (
+  //             v &&
+  //             Object.values(v).some((data) => data && data.status !== "skipped")
+  //           ) {
+  //             indexCount++;
+  //           }
+  //           resolve();
+  //         }
+  //       );
+  //     });
 
-      // Throttle to prevent overloading
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      indexLoop();
-    } catch (err) {
-      console.error("Index loop error:", err);
-      setTimeout(indexLoop, 5000); // Retry after 5 seconds on error
-    }
-  })();
+  //     // Throttle to prevent overloading
+  //     await new Promise((resolve) => setTimeout(resolve, 500));
+  //     indexLoop();
+  //   } catch (err) {
+  //     console.error("Index loop error:", err);
+  //     setTimeout(indexLoop, 5000); // Retry after 5 seconds on error
+  //   }
+  // })();
 
   // Periodic state saving (every 2 minutes)
   setInterval(async () => {
