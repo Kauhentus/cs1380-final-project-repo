@@ -1,5 +1,6 @@
 const readline = require("readline");
 const distribution = require("./config.js");
+const fs = require("fs");
 const id = distribution.util.id;
 
 const num_nodes = 4;
@@ -16,6 +17,16 @@ const indexer_ranged_group_config = {
 };
 const querier_group = {};
 const querier_group_config = { gid: "querier_group", hash: id.naiveHash };
+let isInRecoveryMode = false;
+let lastOperationTime = 0;
+const OPERATION_COOLDOWN = 2000; // 2 seconds
+
+const log_and_append = (string) => {
+  console.log(string);
+  fs.appendFileSync("log.txt", string + "\n");
+};
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Setup nodes
 for (let i = 0; i < num_nodes; i++) {
@@ -37,12 +48,10 @@ distribution.node.start(async (server) => {
   // Utility function to get the target node for a link
   const get_nx = (link) => {
     console.log(link);
-    nodes[parseInt(id.getID(link).slice(0, 8), 16) % num_nodes];
+    return nodes[parseInt(id.getID(link).slice(0, 8), 16) % num_nodes];
   };
 
   // System metrics trackers
-  let crawlCount = 0;
-  let indexCount = 0;
   let startTime = Date.now();
 
   // Initialize your distributed system
@@ -127,44 +136,78 @@ distribution.node.start(async (server) => {
   console.log("\x1b[32m✓\x1b[0m Services initialized");
   console.log("\x1b[32m✓\x1b[0m Distributed search engine is ready!\n");
 
-  // Add initial seed link
-  const seedLink = (link) => {
-    new Promise((resolve) => {
-      distribution.local.comm.send(
-        [link],
-        {
+  startSpinner("Adding initial seed link");
+  // TODO: idk if u agree here, but i started with all categories so we cover all for the initial seed links
+  await Promise.all([
+    new Promise((resolve, reject) => {
+      const link = "/wiki/Cnidaria";
+      // console.log(`Seeding link: ${link} to node ${get_nx(link).port}`);
+      const remote = {
+        node: get_nx(link),
+        gid: "local",
+        service: "crawler",
+        method: "add_link_to_crawl",
+      };
+      distribution.local.comm.send([link], remote, (e, v) => {
+        const remote = {
           node: get_nx(link),
           gid: "local",
           service: "crawler",
-          method: "add_link_to_crawl",
-        },
-        () => resolve()
-      );
-    });
-  };
-  startSpinner("Adding initial seed link");
-  //   await new Promise((resolve) => {
-  //     const link = "/wiki/Cnidaria";
-  //     distribution.local.comm.send(
-  //       [link],
-  //       {
-  //         node: get_nx(link),
-  //         gid: "local",
-  //         service: "crawler",
-  //         method: "add_link_to_crawl",
-  //       },
-  //       () => resolve()
-  //     );
-  //   });
-  await seedLink("/wiki/Cnidaria");
-  await seedLink("/wiki/Plant");
-  await seedLink("/wiki/Lepidoptera");
+          method: "save_maps_to_disk",
+        };
+        distribution.local.comm.send([], remote, (e, v) => {
+          resolve();
+        });
+      });
+    }),
+    new Promise((resolve, reject) => {
+      const link = "/wiki/Plant";
+      // console.log(`Seeding link: ${link} to node ${get_nx(link).port}`);
+      const remote = {
+        node: get_nx(link),
+        gid: "local",
+        service: "crawler",
+        method: "add_link_to_crawl",
+      };
+      distribution.local.comm.send([link], remote, (e, v) => {
+        const remote = {
+          node: get_nx(link),
+          gid: "local",
+          service: "crawler",
+          method: "save_maps_to_disk",
+        };
+        distribution.local.comm.send([], remote, (e, v) => {
+          resolve();
+        });
+      });
+    }),
+    new Promise((resolve, reject) => {
+      const link = "/Lepidoptera";
+      // console.log(`Seeding link: ${link} to node ${get_nx(link).port}`);
+      const remote = {
+        node: get_nx(link),
+        gid: "local",
+        service: "crawler",
+        method: "add_link_to_crawl",
+      };
+      distribution.local.comm.send([link], remote, (e, v) => {
+        const remote = {
+          node: get_nx(link),
+          gid: "local",
+          service: "crawler",
+          method: "save_maps_to_disk",
+        };
+        distribution.local.comm.send([], remote, (e, v) => {
+          resolve();
+        });
+      });
+    }),
+  ]);
   stopSpinner();
   console.log(
     "\x1b[32m✓\x1b[0m Added initial seed links for \x1b[32mPlants\x1b[0m, \x1b[34mSealife\x1b[0m, and \x1b[35mButterflies\x1b[0m!"
   );
 
-  // Utility functions
   const headerLine = (text) => "=".repeat(text.length + 4);
   const formatTime = (ms) => {
     if (ms < 1000) return `${ms}ms`;
@@ -210,6 +253,42 @@ distribution.node.start(async (server) => {
     });
   }
 
+  function logDescriptionTitle(result) {
+    return new Promise((detailResolve) => {
+      distribution.crawler_group.store.get(result.docId, (err, data) => {
+        if (err || !data) {
+          return detailResolve();
+        }
+
+        const title = data.title || data.binomial_name || "Unknown Title";
+
+        console.log(headerLine(`DETAILED INFORMATION: ${title}`));
+        console.log(`| DETAILED INFORMATION: ${title} |`);
+        console.log(headerLine(`DETAILED INFORMATION: ${title}`));
+
+        if (data.binomial_name) {
+          console.log(`\nBinomial name: \x1b[1m${data.binomial_name}\x1b[0m`);
+        }
+
+        if (data.hierarchy && data.hierarchy.length > 0) {
+          console.log("\nTaxonomic Classification:");
+          data.hierarchy.forEach((entry) => {
+            if (Array.isArray(entry) && entry.length === 2) {
+              console.log(`  ${entry[0]}: ${entry[1]}`);
+            }
+          });
+        }
+
+        if (data.description) {
+          console.log("\nDescription:");
+          console.log(data.description);
+        }
+
+        detailResolve();
+      });
+    });
+  }
+
   // Query execution function
   async function executeQuery(queryString) {
     console.log("\nExecuting query...");
@@ -218,6 +297,7 @@ distribution.node.start(async (server) => {
     return new Promise((resolve) => {
       distribution.querier_group.querier.query_one(
         queryString,
+        {},
         async (e, v) => {
           const queryTime = Date.now() - startTime;
 
@@ -273,104 +353,149 @@ distribution.node.start(async (server) => {
                 `   \x1b[32m* BOOSTED! Term appears in binomial name\x1b[0m`
               );
             }
-            logDescriptionTitle(result);
+
             console.log("");
           });
 
           // TODO: Put this in a clickable, interactive component using a library
           // TODO: Decide if I want to keep the logging of both the title and the description since we
           // TODO: are now printing this for all of the results (want to find a balance between information and simplicity)
-          const logDescriptionTitle = (result) => {
-            new Promise((detailResolve) => {
-              distribution.crawler_group.store.get(
-                result.docId,
-                (err, data) => {
-                  if (err || !data) {
-                    return detailResolve();
-                  }
 
-                  const title =
-                    data.title || data.binomial_name || "Unknown Title";
-
-                  console.log(headerLine(`DETAILED INFORMATION: ${title}`));
-                  console.log(`| DETAILED INFORMATION: ${title} |`);
-                  console.log(headerLine(`DETAILED INFORMATION: ${title}`));
-
-                  if (data.binomial_name) {
-                    console.log(
-                      `\nBinomial name: \x1b[1m${data.binomial_name}\x1b[0m`
-                    );
-                  }
-
-                  if (data.hierarchy && data.hierarchy.length > 0) {
-                    console.log("\nTaxonomic Classification:");
-                    data.hierarchy.forEach((entry) => {
-                      if (Array.isArray(entry) && entry.length === 2) {
-                        console.log(`  ${entry[0]}: ${entry[1]}`);
-                      }
-                    });
-                  }
-
-                  if (data.description) {
-                    console.log("\nDescription:");
-                    console.log(data.description);
-                  }
-
-                  detailResolve();
-                }
+          if (v.topResults.length > 0) {
+            const topResult = v.topResults[0];
+            try {
+              await logDescriptionTitle(topResult);
+            } catch (detailError) {
+              console.error(
+                "Error processing detailed information:",
+                detailError
               );
-            });
+            }
+          }
+
+          resolve();
+        }
+      );
+    });
+  }
+
+  async function executeRangeQuery(taxonomyTerm, options = {}) {
+    console.log(`\nExploring taxonomy tree for: ${taxonomyTerm}`);
+    const startTime = Date.now();
+
+    // Default options
+    const defaultOptions = {
+      collapseSpecies: false, // Whether to collapse species nodes
+      maxDepth: 10, // Maximum depth to display
+    };
+
+    const finalOptions = { ...defaultOptions, ...options };
+
+    return new Promise((resolve) => {
+      distribution.querier_group.querier.query_range(
+        taxonomyTerm,
+        { return_tree: true },
+        async (err, results) => {
+          if (err) {
+            console.error("\x1b[31mError exploring taxonomy:\x1b[0m", err);
+            return resolve();
+          }
+
+          if (!results || !results.name) {
+            console.log(`No taxonomy information found for "${taxonomyTerm}"`);
+            return resolve();
+          }
+
+          // Print taxonomy tree statistics
+          const queryTime = Date.now() - startTime;
+
+          // Track counts for reporting
+          let speciesCount = 0;
+          let taxaCount = 0;
+
+          // Recursive printing function
+          const printTree = (
+            node,
+            depth = 0,
+            isLastChild = true,
+            prefix = ""
+          ) => {
+            if (depth > finalOptions.maxDepth) return;
+
+            const isSpecies = node.is_species;
+            const hasChildren = node.children && node.children.length > 0;
+            const numSpeciesChildren = hasChildren
+              ? node.children.filter((child) => child.is_species).length
+              : 0;
+
+            // Format node name
+            let nodeName = isSpecies
+              ? node.name.replace("[SPECIES] /wiki/", "")
+              : node.name;
+
+            if (finalOptions.collapseSpecies && numSpeciesChildren > 0) {
+              nodeName += ` (${numSpeciesChildren} species)`;
+            }
+
+            // Count nodes by type
+            if (isSpecies) {
+              speciesCount++;
+              nodeName = "\x1b[32m*" + nodeName + "\x1b[0m"; // Green for species
+            } else {
+              taxaCount++;
+              nodeName = "\x1b[33m" + nodeName + "\x1b[0m"; // Yellow for taxa
+            }
+
+            // Print the current node
+            if (depth === 0) {
+              console.log(" ".repeat(depth * 2) + nodeName);
+            } else {
+              const branch = isLastChild ? "└─" : "├─";
+              console.log(prefix + branch + nodeName);
+            }
+
+            // Prepare prefix for children
+            const newPrefix = prefix + (isLastChild ? "   " : "│  ");
+
+            // Print children
+            if (node.children) {
+              // Sort children: taxa first, then species, both alphabetically
+              node.children.sort((a, b) => {
+                if (a.is_species && !b.is_species) return 1;
+                if (!a.is_species && b.is_species) return -1;
+                return a.name.localeCompare(b.name);
+              });
+
+              // Print each child
+              node.children.forEach((child, i) => {
+                if (finalOptions.collapseSpecies && child.is_species) return;
+
+                const isLast =
+                  i === node.children.length - 1 ||
+                  (finalOptions.collapseSpecies &&
+                    i ===
+                      node.children.filter((c) => !c.is_species).length - 1);
+
+                printTree(child, depth + 1, isLast, newPrefix);
+              });
+            }
           };
 
-          // if (v.topResults.length > 0) {
-          //   const topResult = v.topResults[0];
-          //   try {
-          //     await new Promise((detailResolve) => {
-          //       distribution.crawler_group.store.get(
-          //         topResult.docId,
-          //         (err, data) => {
-          //           if (err || !data) {
-          //             return detailResolve();
-          //           }
+          // Print the tree
+          console.log("\n\x1b[1mTaxonomy Tree:\x1b[0m");
+          printTree(results);
 
-          //           const title =
-          //             data.title || data.binomial_name || "Unknown Title";
+          // Print summary
+          console.log(
+            `\nFound \x1b[33m${taxaCount} taxa\x1b[0m and \x1b[32m${speciesCount} species\x1b[0m in ${queryTime}ms`
+          );
 
-          //           console.log(headerLine(`DETAILED INFORMATION: ${title}`));
-          //           console.log(`| DETAILED INFORMATION: ${title} |`);
-          //           console.log(headerLine(`DETAILED INFORMATION: ${title}`));
-
-          //           if (data.binomial_name) {
-          //             console.log(
-          //               `\nBinomial name: \x1b[1m${data.binomial_name}\x1b[0m`
-          //             );
-          //           }
-
-          //           if (data.hierarchy && data.hierarchy.length > 0) {
-          //             console.log("\nTaxonomic Classification:");
-          //             data.hierarchy.forEach((entry) => {
-          //               if (Array.isArray(entry) && entry.length === 2) {
-          //                 console.log(`  ${entry[0]}: ${entry[1]}`);
-          //               }
-          //             });
-          //           }
-
-          //           if (data.description) {
-          //             console.log("\nDescription:");
-          //             console.log(data.description);
-          //           }
-
-          //           detailResolve();
-          //         }
-          //       );
-          //     });
-          //   } catch (detailError) {
-          //     console.error(
-          //       "Error processing detailed information:",
-          //       detailError
-          //     );
-          //   }
-          // }
+          // Warn if hitting max depth
+          if (taxaCount + speciesCount >= 100) {
+            console.log(
+              "\n\x1b[33mNote: Large taxonomy tree detected. You can refine your search with a more specific term.\x1b[0m"
+            );
+          }
 
           resolve();
         }
@@ -388,6 +513,9 @@ distribution.node.start(async (server) => {
       "  \x1b[36mcrawl /wiki/PAGE\x1b[0m         - Add a Wikipedia page to the crawler queue"
     );
     console.log(
+      "  \x1b[36mtree TAXONOMY\x1b[0m            - Explore taxonomic hierarchy as a tree"
+    );
+    console.log(
       "  \x1b[36mstats\x1b[0m                    - Display system statistics"
     );
     console.log(
@@ -399,15 +527,23 @@ distribution.node.start(async (server) => {
     console.log(
       "  \x1b[36mexit\x1b[0m or \x1b[36mquit\x1b[0m             - Exit the REPL"
     );
+
     console.log("\n\x1b[1mSearch Tips:\x1b[0m");
     console.log("  - Try combining multiple terms for better results");
     console.log(
       "  - Terms found in taxonomy classification get higher relevance"
     );
+
+    console.log("\n\x1b[1mTaxonomy Tree Options:\x1b[0m");
     console.log(
-      "  - The system is constantly crawling and indexing in the background"
+      "  - \x1b[36mtree plantae\x1b[0m                  - Display the plantae taxonomy tree"
     );
-    console.log("  - Check stats periodically to see growth of the index");
+    console.log(
+      "  - \x1b[36mtree cnidaria --collapse\x1b[0m      - Display tree with species collapsed"
+    );
+    console.log(
+      "  - \x1b[36mtree lepidoptera --depth=3\x1b[0m    - Limit tree depth to 3 levels"
+    );
   }
 
   const saveToDisk = async (indent = 0) => {
@@ -456,7 +592,7 @@ distribution.node.start(async (server) => {
     });
   };
 
-  const aggregateStats = () => {
+  async function aggregateStats() {
     const aggregatedStats = {
       crawling: {
         docsInQueue: 0,
@@ -483,99 +619,233 @@ distribution.node.start(async (server) => {
         errors: 0,
         throughput: 0,
       },
+      querying: {
+        queriesProcessed: 0,
+        rangeQueriesProcessed: 0,
+        totalQueries: 0,
+        failedQueries: 0,
+        emptyResultQueries: 0,
+        resultsReturned: 0,
+        avgQueryTime: 0,
+        avgRangeQueryTime: 0,
+        avgResultsPerQuery: 0,
+        peakMemoryUsage: 0,
+      },
     };
-    distribution.crawler_group.crawler.get_stats((e, v1) => {
-      distribution.indexer_group.indexer.get_stats((e, v2) => {
-        distribution.indexer_ranged_group.indexer_ranged.get_stats((e, v3) => {
-          //   let total_links_to_crawl = 0;
-          //   let total_crawled_links = 0;
-          //   let crawler_throughput = 0;
-          Object.keys(v1).map((key) => {
-            aggregatedStats.crawling.docsInQueue += v1[key].links_to_crawl;
-            const nodeMetrics = v1[key].metrics.crawling;
-            if (nodeMetrics) {
-              aggregatedStats.crawling.totalCrawlTime +=
-                nodeMetrics.totalCrawlTime || 0;
-              aggregatedStats.crawling.pagesProcessed +=
-                nodeMetrics.pagesProcessed || 0;
-              aggregatedStats.crawling.targetsHit +=
-                nodeMetrics.targetsHit || 0;
-              aggregatedStats.crawling.throughput +=
-                nodeMetrics.pagesProcessed /
-                  (nodeMetrics.totalCrawlTime / 1000) || 0;
-            }
-          });
+    return new Promise((resolve, reject) => {
+      distribution.crawler_group.crawler.get_stats((e, v1) => {
+        distribution.indexer_group.indexer.get_stats((e, v2) => {
+          distribution.indexer_ranged_group.indexer_ranged.get_stats(
+            (e, v3) => {
+              distribution.querier_group.querier.get_stats((e, v4) => {
+                Object.keys(v1).map((key) => {
+                  aggregatedStats.crawling.docsInQueue +=
+                    v1[key].links_to_crawl;
+                  const nodeMetrics = v1[key].metrics.crawling;
+                  if (nodeMetrics) {
+                    aggregatedStats.crawling.totalCrawlTime +=
+                      nodeMetrics.totalCrawlTime || 0;
+                    aggregatedStats.crawling.pagesProcessed +=
+                      nodeMetrics.pagesProcessed || 0;
+                    aggregatedStats.crawling.targetsHit +=
+                      nodeMetrics.targetsHit || 0;
+                    aggregatedStats.crawling.throughput +=
+                      nodeMetrics.pagesProcessed /
+                        (nodeMetrics.totalCrawlTime / 1000) || 0;
+                  }
+                });
 
-          console.log(`CRAWLER_STATS:`);
-          console.log(JSON.stringify(aggregatedStats.crawling));
-          //   console.log(`  links_to_crawl = ${total_links_to_crawl}`);
-          //   console.log(`  crawled_links = ${total_crawled_links}`);
-          //   console.log(`  throughput = ${crawler_throughput} pages/sec`);
-          console.log("");
+                Object.keys(v2).map((key) => {
+                  aggregatedStats.indexing.docsInQueue +=
+                    v2[key].links_to_index;
+                  const nodeMetrics = v2[key].metrics;
+                  if (nodeMetrics) {
+                    aggregatedStats.indexing.totalIndexTime +=
+                      nodeMetrics.totalIndexTime || 0;
+                    aggregatedStats.indexing.documentsIndexed +=
+                      nodeMetrics.documentsIndexed || 0;
+                    aggregatedStats.indexing.totalTermsProcessed +=
+                      nodeMetrics.totalTermsProcessed || 0;
+                    aggregatedStats.indexing.totalPrefixesProcessed = Math.min(
+                      (nodeMetrics.totalPrefixesProcessed || 0) +
+                        aggregatedStats.indexing.totalPrefixesProcessed,
+                      6160
+                    );
+                    aggregatedStats.indexing.throughput +=
+                      nodeMetrics.documentsIndexed /
+                        (nodeMetrics.totalIndexTime / 1000) || 0;
+                  }
+                });
 
-          //   let total_links_to_index = 0;
-          //   let total_indexed_links = 0;
-          //   let indexer_throughput = 0;
-          Object.keys(v2).map((key) => {
-            aggregatedStats.indexing.docsInQueue += v2[key].links_to_index;
-            const nodeMetrics = v2[key].metrics;
-            if (nodeMetrics) {
-              aggregatedStats.indexing.totalIndexTime +=
-                nodeMetrics.totalIndexTime || 0;
-              aggregatedStats.indexing.documentsIndexed +=
-                nodeMetrics.documentsIndexed || 0;
-              aggregatedStats.indexing.totalTermsProcessed +=
-                nodeMetrics.totalTermsProcessed || 0;
-              aggregatedStats.indexing.totalPrefixesProcessed = Math.min(
-                (nodeMetrics.totalPrefixesProcessed || 0) +
-                  aggregatedStats.indexing.totalPrefixesProcessed,
-                6160
-              );
-              aggregatedStats.indexing.throughput +=
-                nodeMetrics.documentsIndexed /
-                  (nodeMetrics.totalIndexTime / 1000) || 0;
-            }
-          });
-          console.log(`INDEXER_STATS:`);
-          console.log(JSON.stringify(aggregatedStats.indexing));
-          //   console.log(`  links_to_index = ${total_links_to_index}`);
-          //   console.log(`  indexed_links = ${total_indexed_links}`);
-          //   console.log(`  throughput = ${indexer_throughput} pages/sec`);
-          console.log("");
+                Object.keys(v3).map((key) => {
+                  aggregatedStats.rangeIndex.docsInQueue =
+                    v3[key].links_to_range_index;
+                  const nodeMetrics = v3[key].metrics;
+                  if (nodeMetrics) {
+                    aggregatedStats.rangeIndex.totalIndexTime +=
+                      nodeMetrics.totalIndexTime || 0;
+                    aggregatedStats.rangeIndex.documentsIndexed +=
+                      nodeMetrics.documentsIndexed || 0;
+                    aggregatedStats.rangeIndex.throughput +=
+                      nodeMetrics.documentsIndexed /
+                        (nodeMetrics.totalIndexTime / 1000) || 0;
+                  }
+                });
+                // Process querier stats - new section
+                if (v4 && !e) {
+                  Object.keys(v4).forEach((key) => {
+                    if (v4[key] && v4[key].queriesProcessed !== undefined) {
+                      // Aggregate the basic metrics
+                      aggregatedStats.querying.queriesProcessed +=
+                        v4[key].queriesProcessed || 0;
+                      aggregatedStats.querying.rangeQueriesProcessed +=
+                        v4[key].rangeQueriesProcessed || 0;
+                      aggregatedStats.querying.failedQueries +=
+                        v4[key].failedQueries || 0;
+                      aggregatedStats.querying.emptyResultQueries +=
+                        v4[key].emptyResultQueries || 0;
+                      aggregatedStats.querying.resultsReturned +=
+                        v4[key].resultsReturned || 0;
 
-          Object.keys(v3).map((key) => {
-            aggregatedStats.rangeIndex.docsInQueue =
-              v3[key].links_to_range_index;
-            const nodeMetrics = v3[key].metrics;
-            if (nodeMetrics) {
-              aggregatedStats.rangeIndex.totalIndexTime +=
-                nodeMetrics.totalIndexTime || 0;
-              aggregatedStats.rangeIndex.documentsIndexed +=
-                nodeMetrics.documentsIndexed || 0;
-              aggregatedStats.rangeIndex.throughput +=
-                nodeMetrics.documentsIndexed /
-                  (nodeMetrics.totalIndexTime / 1000) || 0;
+                      // Get peak memory usage across all nodes
+                      if (
+                        v4[key].performance &&
+                        v4[key].performance.peakMemoryUsage
+                      ) {
+                        aggregatedStats.querying.peakMemoryUsage = Math.max(
+                          aggregatedStats.querying.peakMemoryUsage,
+                          v4[key].performance.peakMemoryUsage
+                        );
+                      }
+
+                      // If detailed metrics are available, use them
+                      if (v4[key].metrics) {
+                        const m = v4[key].metrics;
+                        // Track query times by type for calculating averages
+                        if (m.queriesProcessed > 0) {
+                          aggregatedStats.querying.avgQueryTime +=
+                            m.totalQueryTime / m.queriesProcessed;
+                        }
+
+                        if (m.rangeQueriesProcessed > 0) {
+                          aggregatedStats.querying.avgRangeQueryTime +=
+                            m.totalRangeQueryTime / m.rangeQueriesProcessed;
+                        }
+                      }
+                    }
+                  });
+
+                  // Calculate final aggregated stats
+                  aggregatedStats.querying.totalQueries =
+                    aggregatedStats.querying.queriesProcessed +
+                    aggregatedStats.querying.rangeQueriesProcessed;
+
+                  const successfulQueries =
+                    aggregatedStats.querying.queriesProcessed -
+                    aggregatedStats.querying.failedQueries;
+
+                  if (successfulQueries > 0) {
+                    aggregatedStats.querying.avgResultsPerQuery =
+                      aggregatedStats.querying.resultsReturned /
+                      successfulQueries;
+                  }
+
+                  // Average the avgQueryTime and avgRangeQueryTime across nodes
+                  const nodeCount = Object.keys(v4).length;
+                  if (nodeCount > 0) {
+                    aggregatedStats.querying.avgQueryTime /= nodeCount;
+                    aggregatedStats.querying.avgRangeQueryTime /= nodeCount;
+                  }
+                }
+
+                resolve(aggregatedStats);
+              });
             }
-          });
-          console.log(`RANGE_INDEXER_STATS:`);
-          console.log(JSON.stringify(aggregatedStats.rangeIndex));
-          //   console.log(`  links_to_range_index = ${total_links_to_range_index}`);
-          //   console.log(`  range_indexed_links = ${total_range_indexed_links}`);
-          //   console.log(`  throughput = ${range_indexer_throughput} pages/sec`);
-          console.log("");
+          );
         });
       });
     });
+  }
+
+  const updatePrompt = () => {
+    if (isInRecoveryMode) {
+      rl.setPrompt("\x1b[33msearch(recovery)>\x1b[0m ");
+    } else {
+      rl.setPrompt("\x1b[36msearch>\x1b[0m ");
+    }
+    rl.prompt();
   };
 
-  // Setup the REPL interface
+  const main_metric_loop = () => {
+    // console.log("PAUSING CORE SERVICES...\n");
+    isInRecoveryMode = true;
+
+    const t1 = Date.now();
+    console.log(
+      "\n\x1b[33mSystem is now in recovery mode. REPL remains available.\x1b[0m"
+    );
+    updatePrompt();
+
+    new Promise((resolve) => {
+      distribution.crawler_group.crawler.set_service_state(true, (e, v) => {
+        distribution.indexer_group.indexer.set_service_state(true, (e, v) => {
+          distribution.indexer_ranged_group.indexer_ranged.set_service_state(
+            true,
+            (e, v) => {
+              resolve();
+            }
+          );
+        });
+      });
+    }).then(() => {
+      const t2 = Date.now();
+      // log_and_append(`RECOVERY TIME FOR CORE SERVICES: ${t2 - t1}ms`);
+
+      setTimeout(() => {
+        // console.log("RESUMING CORE SERVICES...\n");
+        // const t5 = Date.now();
+
+        new Promise((resolve) => {
+          distribution.crawler_group.crawler.set_service_state(
+            false,
+            (e, v) => {
+              distribution.indexer_group.indexer.set_service_state(
+                false,
+                (e, v) => {
+                  distribution.indexer_ranged_group.indexer_ranged.set_service_state(
+                    false,
+                    (e, v) => {
+                      resolve();
+                    }
+                  );
+                }
+              );
+            }
+          );
+        }).then(() => {
+          // const t6 = Date.now();
+          // console.log(`  (RESUMED CORE SERVICES IN ${t6 - t5}ms)`);
+          console.log(
+            "\n\x1b[32mRecovery mode ended. System resumed normal operations.\x1b[0m"
+          );
+          isInRecoveryMode = false;
+          updatePrompt();
+        });
+      }, 9000);
+    });
+
+    setTimeout(() => main_metric_loop(), 120000);
+  };
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
     prompt: "\x1b[36msearch>\x1b[0m ",
   });
 
-  console.log("\n\x1b[1;35m===== Distributed Search Engine REPL =====\x1b[0m");
+  console.log(
+    "\n\x1b[1;35m===== (TAXI🚕) Distributed Search Engine REPL =====\x1b[0m"
+  );
   console.log("Background crawling and indexing has been enabled!");
   console.log("Type 'help' to see available commands");
   rl.prompt();
@@ -586,8 +856,19 @@ distribution.node.start(async (server) => {
     const command = parts[0].toLowerCase();
 
     if (input === "") {
-      rl.prompt();
+      updatePrompt();
       return;
+    }
+
+    if (
+      isInRecoveryMode &&
+      command !== "help" &&
+      command !== "exit" &&
+      command !== "quit"
+    ) {
+      console.log(
+        "\x1b[33mNote: System is currently in recovery mode. Some operations might be limited.\x1b[0m"
+      );
     }
 
     if (command === "exit" || command === "quit") {
@@ -614,39 +895,30 @@ distribution.node.start(async (server) => {
     } else if (command === "help") {
       displayHelp();
     } else if (command === "stats") {
-      // Display system statistics
       try {
         startSpinner("Collecting system statistics");
-
-        const [crawlerStats, indexerStats] = await Promise.all([
-          new Promise((resolve) => {
-            distribution.crawler_group.crawler.get_stats(null, (err, stats) => {
-              if (err) {
-                console.error("Error getting crawler stats:", err);
-                resolve({});
-              } else {
-                resolve(stats);
-              }
-            });
-          }),
-          new Promise((resolve) => {
-            if (distribution.indexer_group.indexer.get_stats) {
-              distribution.indexer_group.indexer.get_stats(
-                null,
-                (err, stats) => {
-                  if (err) {
-                    console.error("Error getting indexer stats:", err);
-                    resolve({});
-                  } else {
-                    resolve(stats);
+        // startSpinner("Stopping background processes", 2);
+        await new Promise((resolve, reject) => {
+          distribution.crawler_group.crawler.set_service_state(true, (e, v) => {
+            distribution.indexer_group.indexer.set_service_state(
+              true,
+              (e, v) => {
+                distribution.indexer_ranged_group.indexer_ranged.set_service_state(
+                  true,
+                  (e, v) => {
+                    resolve();
                   }
-                }
-              );
-            } else {
-              resolve({});
-            }
-          }),
-        ]);
+                );
+              }
+            );
+          });
+        });
+
+        // stopSpinner();
+
+        const systemStats = await aggregateStats();
+
+        // console.log(systemStats);
 
         stopSpinner();
 
@@ -657,106 +929,148 @@ distribution.node.start(async (server) => {
 
         // Background processing stats
         console.log(`\nBackground Processing:`);
-        console.log(`  Crawl operations: ${crawlCount}`);
-        console.log(`  Index operations: ${indexCount}`);
+        console.log(
+          `  Crawl operations: ${systemStats.crawling.pagesProcessed}`
+        );
+        console.log(
+          `  Index operations: ${systemStats.indexing.documentsIndexed}`
+        );
+        // console.log("");
 
-        // Crawler stats
         console.log("\nCrawler Statistics:");
-        let totalPagesCrawled = 0;
-        let totalLinksQueued = 0;
-
-        for (const nodeId in crawlerStats) {
-          if (crawlerStats[nodeId]) {
-            totalPagesCrawled += crawlerStats[nodeId].crawled_links || 0;
-            totalLinksQueued += crawlerStats[nodeId].links_to_crawl || 0;
-          }
-        }
+        const crawlerStats = systemStats.crawling;
+        const totalPagesCrawled = crawlerStats.pagesProcessed || 0;
+        const totalLinksQueued = crawlerStats.docsInQueue || 0;
 
         console.log(`  Pages crawled: ${totalPagesCrawled}`);
         console.log(`  Links in queue: ${totalLinksQueued}`);
-
-        // Per-node crawler details if available
-        const nodeDetails = [];
-        for (const nodeId in crawlerStats) {
-          if (crawlerStats[nodeId]) {
-            const nodeInfo = crawlerStats[nodeId];
-            nodeDetails.push({
-              id: nodeId,
-              crawled: nodeInfo.crawled_links || 0,
-              queued: nodeInfo.links_to_crawl || 0,
-            });
-          }
+        console.log(
+          `  Average crawl time: ${formatTime(
+            crawlerStats.totalCrawlTime / (totalPagesCrawled || 1)
+          )} ms`
+        );
+        if (crawlerStats.throughput > 0) {
+          console.log(
+            `  Crawl throughput: ${crawlerStats.throughput.toFixed(
+              2
+            )} pages/second`
+          );
         }
-
-        if (nodeDetails.length > 0) {
-          console.log("\n  Crawler Nodes:");
-          nodeDetails.forEach((node) => {
-            console.log(
-              `    Node ${node.id}: ${node.crawled} crawled, ${node.queued} queued`
-            );
-          });
-        }
-
-        // Indexer stats if available
-        if (indexerStats && Object.keys(indexerStats).length > 0) {
+        if (systemStats.indexing) {
           console.log("\nIndexer Statistics:");
-          let totalDocsIndexed = 0;
-          let totalTermsProcessed = 0;
-
-          for (const nodeId in indexerStats) {
-            if (indexerStats[nodeId] && indexerStats[nodeId].metrics) {
-              totalDocsIndexed +=
-                indexerStats[nodeId].metrics.documentsIndexed || 0;
-              totalTermsProcessed +=
-                indexerStats[nodeId].metrics.totalTermsProcessed || 0;
-            }
-          }
+          let totalDocsIndexed = systemStats.indexing.documentsIndexed || 0;
+          let totalLinksQueued = systemStats.indexing.docsInQueue || 0;
+          let totalTermsProcessed =
+            systemStats.indexing.totalTermsProcessed || 0;
 
           console.log(`  Documents indexed: ${totalDocsIndexed}`);
-          if (totalTermsProcessed > 0) {
-            console.log(`  Terms processed: ${totalTermsProcessed}`);
+          console.log(`  Links in queue: ${totalLinksQueued}`);
+          console.log(`  Total terms processed: ${totalTermsProcessed}`);
+          console.log(
+            `  Average index time: ${formatTime(
+              systemStats.indexing.totalIndexTime / (totalDocsIndexed || 1)
+            )} ms`
+          );
+          if (systemStats.indexing.throughput > 0) {
+            console.log(
+              `  Index throughput: ${systemStats.indexing.throughput.toFixed(
+                2
+              )} documents/second`
+            );
+          }
+        }
+
+        if (systemStats.rangeIndex) {
+          console.log("\nRange Indexer Statistics:");
+          let totalDocsIndexed = systemStats.rangeIndex.documentsIndexed || 0;
+          let totalLinksQueued = systemStats.rangeIndex.docsInQueue || 0;
+
+          console.log(`  Documents indexed: ${totalDocsIndexed}`);
+          console.log(`  Links in queue: ${totalLinksQueued}`);
+          console.log(
+            `  Average range index time: ${formatTime(
+              systemStats.rangeIndex.totalIndexTime / (totalDocsIndexed || 1)
+            )} ms`
+          );
+          if (systemStats.rangeIndex.throughput > 0) {
+            console.log(
+              `  Range index throughput: ${systemStats.rangeIndex.throughput.toFixed(
+                2
+              )} documents/second`
+            );
+          }
+        }
+        if (systemStats.querying) {
+          console.log("\nQuerier Statistics:");
+          const queryStats = systemStats.querying;
+
+          // Basic query counts
+          console.log(`  Total queries processed: ${queryStats.totalQueries}`);
+          console.log(`  - Term-based queries: ${queryStats.queriesProcessed}`);
+          console.log(
+            `  - Taxonomy queries: ${queryStats.rangeQueriesProcessed}`
+          );
+
+          // Performance metrics
+          if (queryStats.queriesProcessed > 0) {
+            console.log(
+              `  Average query time: ${formatTime(queryStats.avgQueryTime)}`
+            );
           }
 
-          // Display per-node indexer details if available
-          const indexerNodeDetails = [];
-          for (const nodeId in indexerStats) {
-            if (indexerStats[nodeId] && indexerStats[nodeId].metrics) {
-              const nodeMetrics = indexerStats[nodeId].metrics;
-              indexerNodeDetails.push({
-                id: nodeId,
-                docs: nodeMetrics.documentsIndexed || 0,
-                terms: nodeMetrics.totalTermsProcessed || 0,
-              });
-            }
+          if (queryStats.rangeQueriesProcessed > 0) {
+            console.log(
+              `  Average taxonomy query time: ${formatTime(
+                queryStats.avgRangeQueryTime
+              )}`
+            );
           }
 
-          if (indexerNodeDetails.length > 0) {
-            console.log("\n  Indexer Nodes:");
-            indexerNodeDetails.forEach((node) => {
-              console.log(
-                `    Node ${node.id}: ${node.docs} documents, ${node.terms} terms`
+          // Results metrics
+          console.log(
+            `  Total results returned: ${queryStats.resultsReturned}`
+          );
+          console.log(
+            `  Average results per query: ${queryStats.avgResultsPerQuery.toFixed(
+              2
+            )}`
+          );
+
+          // Quality metrics
+          console.log(`  Failed queries: ${queryStats.failedQueries}`);
+          console.log(
+            `  Empty result queries: ${queryStats.emptyResultQueries}`
+          );
+
+          // Resource usage
+          console.log(`  Peak memory usage: ${queryStats.peakMemoryUsage}MB`);
+        }
+        console.log(
+          "\x1b[1;35m========================================\x1b[0m\n"
+        );
+        console.log("\x1b[1;35m===== End of Statistics =====\x1b[0m\n");
+        stopSpinner();
+        // const t5 = Date.now();
+        await new Promise((resolve, reject) => {
+          distribution.crawler_group.crawler.set_service_state(
+            false,
+            (e, v) => {
+              distribution.indexer_group.indexer.set_service_state(
+                false,
+                (e, v) => {
+                  distribution.indexer_ranged_group.indexer_ranged.set_service_state(
+                    false,
+                    (e, v) => {
+                      resolve();
+                    }
+                  );
+                }
               );
-            });
-          }
-        }
-
-        // Add system performance metrics if available
-        console.log(`\nSystem Performance:`);
-        const uptime = formatTime(Date.now() - startTime);
-        console.log(`  Uptime: ${uptime}`);
-
-        if (crawlCount > 0 && indexCount > 0) {
-          const crawlRate = (
-            crawlCount /
-            ((Date.now() - startTime) / 1000)
-          ).toFixed(2);
-          const indexRate = (
-            indexCount /
-            ((Date.now() - startTime) / 1000)
-          ).toFixed(2);
-          console.log(`  Crawl rate: ${crawlRate} pages/second`);
-          console.log(`  Index rate: ${indexRate} documents/second`);
-        }
+            }
+          );
+        });
+        // const t6 = Date.now();
+        // console.log(`  (RESUMED CORE SERVICES IN ${t6 - t5}ms)`);
       } catch (error) {
         stopSpinner();
         console.error(
@@ -770,19 +1084,25 @@ distribution.node.start(async (server) => {
 
       try {
         await Promise.all([
-          new Promise((resolve) => {
-            distribution.crawler_group.comm.send(
-              [],
-              { gid: "local", service: "crawler", method: "save_maps_to_disk" },
-              () => resolve()
-            );
+          new Promise((resolve, reject) => {
+            const remote = {
+              gid: "local",
+              service: "crawler",
+              method: "save_maps_to_disk",
+            };
+            distribution.indexer_group.comm.send([], remote, (e, v) => {
+              resolve();
+            });
           }),
-          new Promise((resolve) => {
-            distribution.indexer_group.comm.send(
-              [],
-              { gid: "local", service: "indexer", method: "save_maps_to_disk" },
-              () => resolve()
-            );
+          new Promise((resolve, reject) => {
+            const remote = {
+              gid: "local",
+              service: "indexer",
+              method: "save_maps_to_disk",
+            };
+            distribution.indexer_group.comm.send([], remote, (e, v) => {
+              resolve();
+            });
           }),
         ]);
 
@@ -802,97 +1122,80 @@ distribution.node.start(async (server) => {
         const link = parts.slice(1).join(" ");
         await addLinkToCrawl(link);
       }
+    } else if (command === "tree" || command === "taxonomy") {
+      if (parts.length < 2) {
+        console.log(
+          "\x1b[31mError: Missing taxonomy term. Usage: tree TAXONOMY_TERM [options]\x1b[0m"
+        );
+        console.log("Example: tree plantae");
+        console.log("Example: tree cnidaria --collapse");
+      } else {
+        const taxonomyTerm = parts[1].toLowerCase();
+        const options = {
+          collapseSpecies: parts.includes("--collapse") || parts.includes("-c"),
+          maxDepth: 10,
+        };
+
+        const depthFlag = parts.find(
+          (part) => part.startsWith("--depth=") || part.startsWith("-d=")
+        );
+        if (depthFlag) {
+          const depthValue = depthFlag.split("=")[1];
+          options.maxDepth = parseInt(depthValue) || 10;
+        }
+
+        await executeRangeQuery(taxonomyTerm, options);
+      }
     } else if (input) {
-      // Execute the search query
       await executeQuery(input);
     }
 
-    rl.prompt();
+    updatePrompt();
   }).on("close", () => {
     console.log("Exiting REPL. Goodbye!");
+    // TODO: Should I add a loop here to close the nodes
     process.exit(0);
   });
 
-  // Start background crawling and indexing
-  console.log("\x1b[33mStarting background crawling and indexing...\x1b[0m");
+  console.log("\x1b[33mStarting background crawling and indexing...\x1b[0m\n");
 
-  // Background crawling process
-  (async function crawlLoop() {
-    try {
-      await new Promise((resolve) => {
-        distribution.crawler_group.comm.send(
-          [],
-          { gid: "local", service: "crawler", method: "crawl_one" },
-          (e, v) => {
-            if (e && !isEmptyObject(e)) {
-              console.error("Crawl error:", e);
-            } else if (
-              v &&
-              Object.values(v).some((r) => r && r.status === "success")
-            ) {
-              crawlCount++;
-            }
-            resolve();
-          }
-        );
-      });
+  distribution.crawler_group.crawler.start_crawl((e, v) => {});
+  distribution.indexer_group.indexer.start_index((e, v) => {});
+  distribution.indexer_ranged_group.indexer_ranged.start_index((e, v) => {});
+  setTimeout(() => main_metric_loop(), 3000);
 
-      // Throttle to prevent overloading
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      crawlLoop();
-    } catch (err) {
-      console.error("Crawl loop error:", err);
-      setTimeout(crawlLoop, 5000); // Retry after 5 seconds on error
-    }
-  })();
-
-  // Background indexing process
-  (async function indexLoop() {
-    try {
-      await new Promise((resolve) => {
-        distribution.indexer_group.comm.send(
-          [],
-          { gid: "local", service: "indexer", method: "index_one" },
-          (e, v) => {
-            if (e && !isEmptyObject(e)) {
-              console.error("Index error:", e);
-            } else if (
-              v &&
-              Object.values(v).some((data) => data && data.status !== "skipped")
-            ) {
-              indexCount++;
-            }
-            resolve();
-          }
-        );
-      });
-
-      // Throttle to prevent overloading
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      indexLoop();
-    } catch (err) {
-      console.error("Index loop error:", err);
-      setTimeout(indexLoop, 5000); // Retry after 5 seconds on error
-    }
-  })();
-
-  // Periodic state saving (every 2 minutes)
   setInterval(async () => {
     try {
       await Promise.all([
-        new Promise((resolve) => {
-          distribution.crawler_group.comm.send(
-            [],
-            { gid: "local", service: "crawler", method: "save_maps_to_disk" },
-            () => resolve()
-          );
+        new Promise((resolve, reject) => {
+          const remote = {
+            gid: "local",
+            service: "crawler",
+            method: "save_maps_to_disk",
+          };
+          distribution.crawler_group.comm.send([], remote, (e, v) => {
+            resolve();
+          });
         }),
-        new Promise((resolve) => {
-          distribution.indexer_group.comm.send(
-            [],
-            { gid: "local", service: "indexer", method: "save_maps_to_disk" },
-            () => resolve()
-          );
+        new Promise((resolve, reject) => {
+          const remote = {
+            gid: "local",
+            service: "indexer",
+            method: "save_maps_to_disk",
+          };
+          distribution.indexer_group.comm.send([], remote, (e, v) => {
+            resolve();
+          });
+        }),
+        new Promise((resolve, reject) => {
+          const remote = {
+            gid: "local",
+            service: "indexer_ranged",
+            method: "save_maps_to_disk",
+          };
+          distribution.indexer_ranged_group.comm.send([], remote, (e, v) => {
+            resolve();
+          });
         }),
       ]);
 
@@ -903,5 +1206,5 @@ distribution.node.start(async (server) => {
         error
       );
     }
-  }, 120000); // Every 2 minutes
+  }, 120000);
 });
