@@ -382,6 +382,8 @@ function get_stats(callback) {
     metrics: metrics,
   };
 
+  console.log("Current Stats:", stats);
+
   callback(null, stats);
 }
 
