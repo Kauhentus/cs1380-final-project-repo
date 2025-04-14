@@ -418,15 +418,11 @@ distribution.node.start(async (server) => {
     const main_metric_loop = async () => {
       console.log("PAUSING CORE SERVICES...\n");
       const t1 = Date.now();
-      await new Promise((resolve, reject) => {
-        distribution.crawler_group.crawler.set_service_state(true, (e, v) => {
-          distribution.indexer_group.indexer.set_service_state(true, (e, v) => {
-            distribution.indexer_ranged_group.indexer_ranged.set_service_state(true, (e, v) => {
-              resolve();
-            });
-          });
-        });
-      });
+      await Promise.all([
+        new Promise((resolve, reject) => distribution.crawler_group.crawler.set_service_state(true, (e, v) => resolve())),
+        new Promise((resolve, reject) => distribution.indexer_group.indexer.set_service_state(true, (e, v) => resolve())),
+        new Promise((resolve, reject) => distribution.indexer_ranged_group.indexer_ranged.set_service_state(true, (e, v) => resolve()))
+      ]);
       const t2 = Date.now();
       // console.log(`  (PAUSED CORE SERVICES IN ${t2 - t1}ms)`);
       log_and_append(`RECOVERY TIME FOR CORE SERVICES: ${t2 - t1}ms`);
