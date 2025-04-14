@@ -428,7 +428,8 @@ distribution.node.start(async (server) => {
         });
       });
       const t2 = Date.now();
-      console.log(`  (PAUSED CORE SERVICES IN ${t2 - t1}ms)`);
+      // console.log(`  (PAUSED CORE SERVICES IN ${t2 - t1}ms)`);
+      log_and_append(`RECOVERY TIME FOR CORE SERVICES: ${t2 - t1}ms`);
 
       await sleep(3000);
 
