@@ -160,7 +160,7 @@ const querier = function (config) {
         return sortedResults;
       }
 
-      if (log_queries) console.log(`Processing query: "${query}"`);
+      // if (log_queries) console.log(`Processing query: "${query}"`);
       const { original, normalized, terms, prefixMap } = processQuery(query);
       if (terms.length === 0) {
         return callback(null, {
@@ -169,7 +169,7 @@ const querier = function (config) {
           message: "No valid search terms found after removing common words",
         });
       }
-      if (log_queries) console.log(`Tokenized terms: ${JSON.stringify(terms)}`);
+      // if (log_queries) console.log(`Tokenized terms: ${JSON.stringify(terms)}`);
 
       getTotalDocumentCount(async (err, totalDocCount) => {
         distribution.local.groups.get("indexer_group", async (e, v) => {
@@ -184,21 +184,21 @@ const querier = function (config) {
           const queryPromises = [];
 
           // Explicitly log the query distribution
-          console.log(
-            `Distributing query to ${prefixMap.size} node(s) for ${terms.length} term(s)`
-          );
+          // console.log(
+          // `Distributing query to ${prefixMap.size} node(s) for ${terms.length} term(s)`
+          // );
 
           for (const [prefix, terms] of prefixMap.entries()) {
-            console.log(`Processing prefix: ${prefix} with terms: ${terms}`);
+            // console.log(`Processing prefix: ${prefix} with terms: ${terms}`);
             const chosenNode = getChosenNode(prefix, nids, nodes);
             if (!chosenNode) {
               console.error(`No chosen node for prefix: ${prefix}`);
               continue;
             }
 
-            console.log(
-              `Chosen Node for prefix ${prefix}: ${JSON.stringify(chosenNode)}`
-            );
+            // console.log(
+            //   `Chosen Node for prefix ${prefix}: ${JSON.stringify(chosenNode)}`
+            // );
 
             const queryPromise = new Promise((resolve, reject) => {
               const config = {
@@ -216,9 +216,9 @@ const querier = function (config) {
               ];
 
               // Log before sending the request
-              console.log(
-                `Sending query_one request to node ${chosenNode.port} for prefix ${prefix}`
-              );
+              // console.log(
+              //   `Sending query_one request to node ${chosenNode.port} for prefix ${prefix}`
+              // );
 
               distribution.local.comm.send(message, config, (err, response) => {
                 if (err) {
@@ -228,9 +228,9 @@ const querier = function (config) {
                   );
                   resolve(null);
                 } else {
-                  console.log(
-                    `Received response from node ${chosenNode.port} for prefix ${prefix}`
-                  );
+                  // console.log(
+                  //   `Received response from node ${chosenNode.port} for prefix ${prefix}`
+                  // );
                   resolve(response);
                 }
               });
@@ -241,7 +241,7 @@ const querier = function (config) {
 
           try {
             const nodeResults = await Promise.all(queryPromises);
-            console.log(`All ${queryPromises.length} prefix queries completed`);
+            // console.log(`All ${queryPromises.length} prefix queries completed`);
 
             const mergedResults = merger(nodeResults);
             const no_trim = options.no_trim || false;

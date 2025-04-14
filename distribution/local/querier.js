@@ -66,20 +66,20 @@ function initialize(callback) {
         // Only use the latest metrics if they exist
         if (Array.isArray(old_metrics) && old_metrics.length > 0) {
           metrics = old_metrics[old_metrics.length - 1];
-          console.log(
-            `Loaded existing metrics from ${metrics_file_path}:`,
-            metrics
-          );
+          // console.log(
+          //   `Loaded existing metrics from ${metrics_file_path}:`,
+          //   metrics
+          // );
         } else {
-          console.log(
-            `Found metrics file but no valid metrics data, using defaults`
-          );
+          // console.log(
+          //   `Found metrics file but no valid metrics data, using defaults`
+          // );
         }
       }
     } else {
-      console.log(
-        `No metrics file found at ${metrics_file_path}, creating new one`
-      );
+      // console.log(
+      //   `No metrics file found at ${metrics_file_path}, creating new one`
+      // );
       fs.writeFileSync(metrics_file_path, JSON.stringify([metrics], null, 2));
     }
   } catch (error) {
@@ -131,9 +131,9 @@ function initialize(callback) {
       old_metrics.push({ ...metrics });
 
       // Log metrics being saved
-      console.log(
-        `Saving metrics: queriesProcessed=${metrics.queriesProcessed}, totalQueryTime=${metrics.totalQueryTime}ms`
-      );
+      // console.log(
+      //   `Saving metrics: queriesProcessed=${metrics.queriesProcessed}, totalQueryTime=${metrics.totalQueryTime}ms`
+      // );
 
       await fsp.writeFile(
         metrics_file_path,
@@ -196,7 +196,7 @@ function query_one(queryConfiguration, callback) {
     gid: "indexer_group",
   };
   const queryStartTime = Date.now();
-  console.log(`Starting query for: ${query} at ${queryStartTime}`);
+  // console.log(`Starting query for: ${query} at ${queryStartTime}`);
 
   distribution.local.store.read_bulk(bulkReadConfig, (error, prefixData) => {
     const queryTime = Date.now() - queryStartTime;
@@ -474,7 +474,7 @@ function get_stats(callback) {
     metrics: metrics,
   };
 
-  console.log("Current Stats:", stats);
+  // console.log("Current Stats:", stats);
 
   callback(null, stats);
 }

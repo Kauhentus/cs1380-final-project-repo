@@ -637,16 +637,16 @@ distribution.node.start(async (server) => {
       },
     };
     return new Promise((resolve, reject) => {
-      console.log("Fetching stats from all services...");
+      console.log(`\n Fetching stats from all services...`);
       distribution.crawler_group.crawler.get_stats((e, v1) => {
-        console.log("Crawler stats received");
+        // console.log("Crawler stats received");
         distribution.indexer_group.indexer.get_stats((e, v2) => {
-          console.log("Indexer stats received");
+          // console.log("Indexer stats received");
           distribution.indexer_ranged_group.indexer_ranged.get_stats(
-            (e, v3) => {
-              console.log("Ranged indexer stats received");
-              console.log("Requesting querier stats from all nodes...");
-              distribution.querier_group.querier.get_stats((e, v4) => {
+            (e3, v3) => {
+              // console.log("Ranged indexer stats received");
+              // console.log("Requesting querier stats from all nodes...");
+              distribution.querier_group.querier.get_stats((e4, v4) => {
                 console.log("Querier stats received:", v4);
                 Object.keys(v1).map((key) => {
                   aggregatedStats.crawling.docsInQueue +=
@@ -701,19 +701,9 @@ distribution.node.start(async (server) => {
                         (nodeMetrics.totalIndexTime / 1000) || 0;
                   }
                 });
-                // Process querier stats - new section
-                if (v4 && !e) {
-                  console.log(
-                    `Processing querier stats from ${
-                      Object.keys(v4).length
-                    } nodes`
-                  );
-
+                if (v4) {
                   Object.keys(v4).forEach((key) => {
-                    console.log(`Node ${key} stats:`, v4[key]);
-
                     if (v4[key] && v4[key].queriesProcessed !== undefined) {
-                      // Aggregate the basic metrics
                       aggregatedStats.querying.queriesProcessed +=
                         v4[key].queriesProcessed || 0;
                       aggregatedStats.querying.rangeQueriesProcessed +=
@@ -725,7 +715,6 @@ distribution.node.start(async (server) => {
                       aggregatedStats.querying.resultsReturned +=
                         v4[key].resultsReturned || 0;
 
-                      // Get peak memory usage across all nodes
                       if (
                         v4[key].performance &&
                         v4[key].performance.peakMemoryUsage
@@ -736,10 +725,9 @@ distribution.node.start(async (server) => {
                         );
                       }
 
-                      // If detailed metrics are available, use them
                       if (v4[key].metrics) {
                         const m = v4[key].metrics;
-                        console.log(`Node ${key} detailed metrics:`, m);
+                        // console.log(`Node ${key} detailed metrics:`, m);
 
                         // Track query times by type for calculating averages
                         if (m.queriesProcessed > 0) {
@@ -757,7 +745,6 @@ distribution.node.start(async (server) => {
                     }
                   });
 
-                  // Calculate final aggregated stats
                   aggregatedStats.querying.totalQueries =
                     aggregatedStats.querying.queriesProcessed +
                     aggregatedStats.querying.rangeQueriesProcessed;
@@ -772,7 +759,6 @@ distribution.node.start(async (server) => {
                       successfulQueries;
                   }
 
-                  // Average the avgQueryTime and avgRangeQueryTime across nodes
                   const nodeCount = Object.keys(v4).length;
                   if (nodeCount > 0) {
                     aggregatedStats.querying.avgQueryTime /= nodeCount;
@@ -782,7 +768,7 @@ distribution.node.start(async (server) => {
                   console.error("Error retrieving querier stats:", e);
                 }
 
-                console.log("Final aggregated stats:", aggregatedStats);
+                // console.log("Final aggregated stats:", aggregatedStats);
                 resolve(aggregatedStats);
               });
             }
@@ -848,7 +834,6 @@ distribution.node.start(async (server) => {
             }
           );
         }).then(() => {
-          // const t6 = Date.now();
           // console.log(`  (RESUMED CORE SERVICES IN ${t6 - t5}ms)`);
           console.log(
             "\n\x1b[32mRecovery mode ended. System resumed normal operations.\x1b[0m"
@@ -869,7 +854,7 @@ distribution.node.start(async (server) => {
   });
 
   console.log(
-    "\n\x1b[1;35m===== (TAXI🚕) Distributed Search Engine REPL =====\x1b[0m"
+    "\n\x1b[1;35m===== TAXI🚕 Distributed Search Engine REPL =====\x1b[0m"
   );
   console.log("Background crawling and indexing has been enabled!");
   console.log("Type 'help' to see available commands");
