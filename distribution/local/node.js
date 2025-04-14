@@ -10,7 +10,8 @@ const { writeFileSync, appendFileSync } = require('fs');
 */
 
 const services_list = [
-  'status', 'routes', 'comm', 'groups', 'mem', 'store'
+  'status', 'routes', 'comm', 'groups', 'mem', 'store', 
+  'crawler', 'indexer', 'indexer_ranged', 'querier'
 ];
 
 const start = function(callback) {

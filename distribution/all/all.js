@@ -11,29 +11,40 @@ mr        A map-reduce implementation            exec
 */
 
 /* Comm Service */
-const comm = require('./comm');
+const comm = require("./comm");
 
 /* Groups Service */
-const groups = require('./groups');
+const groups = require("./groups");
 
 /* Routes Service */
-const routes = require('./routes');
+const routes = require("./routes");
 
 /* Status Service */
-const status = require('./status');
+const status = require("./status");
 
 /* Gossip Service */
-const gossip = require('./gossip');
+const gossip = require("./gossip");
 
 /* Mem Service */
-const mem = require('./mem');
+const mem = require("./mem");
 
 /* Store Service */
-const store = require('./store');
+const store = require("./store");
 
 /* Map-Reduce Service */
-const mr = require('./mr');
+const mr = require("./mr");
 
+/* Indexer Service */
+const indexer = require("./indexer");
+
+/* Range Indexer Service */
+const indexer_range = require("./indexer_ranged");
+
+/* Crawler Service */
+const crawler = require("./crawler");
+
+/* Querier Service */
+const querier = require("./querier");
 
 module.exports = {
   comm: comm,
@@ -44,4 +55,8 @@ module.exports = {
   mem: mem,
   store: store,
   mr: mr,
+  crawler: crawler,
+  indexer: indexer,
+  indexer_range: indexer_range,
+  querier: querier,
 };

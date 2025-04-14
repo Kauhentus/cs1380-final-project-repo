@@ -49,12 +49,21 @@ function idToNum(id) {
   return n;
 }
 
+// function naiveHash(kid, nids) {
+//   const idToNum = (id) => parseInt(id, 16);
+//   nids.sort();
+//   return nids[idToNum(kid) % nids.length];
+// }
 function naiveHash(kid, nids) {
   nids.sort();
-  return nids[idToNum(kid) % nids.length];
+  const idBig = kid.startsWith('0x') ? BigInt(kid) : BigInt('0x' + kid);
+  const idxBig = idBig % BigInt(nids.length);
+  const idx = Number(idxBig);
+  return nids[idx];
 }
 
 function consistentHash(kid, nids) {
+  const idToNum = (id) => parseInt(id, 16);
   const kid_num = idToNum(kid);
   const nids_with_num = nids.map(nid => ({ nid, num: idToNum(nid) }));
   nids_with_num.sort((a, b) => a.num - b.num);
@@ -64,6 +73,7 @@ function consistentHash(kid, nids) {
 
 
 function rendezvousHash(kid, nids) {
+  const idToNum = (id) => parseInt(id, 16);
   const scores = nids.map((nid) => {
     const score = idToNum(getID(kid + nid));
     return {nid, score};

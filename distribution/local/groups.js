@@ -52,6 +52,11 @@ groups.put = function (config, group, callback) {
     distribution[gid].mem = require('../all/mem')(config);
     distribution[gid].store = require('../all/store')(config);
     distribution[gid].mr = require('../all/mr')(config);
+
+    distribution[gid].crawler = require('../all/crawler')(config);
+    distribution[gid].indexer = require('../all/indexer')(config);
+    distribution[gid].indexer_ranged = require('../all/indexer_ranged')(config);
+    distribution[gid].querier = require('../all/querier')(config);
   }
 
   callback(null, group);

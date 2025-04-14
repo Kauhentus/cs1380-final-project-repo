@@ -82,6 +82,22 @@ distribution["all"].mem = require("./distribution/all/mem.js")({ gid: "all" });
 distribution["all"].store = require("./distribution/all/store.js")({
   gid: "all",
 });
+distribution["all"].mr = require("./distribution/all/mr.js")({
+  gid: "all",
+});
+distribution["all"].crawler = require("./distribution/all/crawler.js")({
+  gid: "all",
+});
+distribution["all"].indexer = require("./distribution/all/indexer.js")({
+  gid: "all",
+});
+distribution["all"].indexer_range =
+  require("./distribution/all/indexer_ranged.js")({
+    gid: "all",
+  });
+distribution["all"].querier = require("./distribution/all/querier.js")({
+  gid: "all",
+});
 
 distribution.node.config = global.nodeConfig;
 module.exports = distribution;
