@@ -3,6 +3,7 @@
 
 const { appendFileSync } = require("fs");
 const http = require("http");
+const { exec } = require("child_process");
 
 /**
  * @typedef {Object} Target
@@ -17,6 +18,26 @@ const http = require("http");
  * @param {Callback} [callback]
  * @return {void}
  */
+function killPortProcess(port) {
+  return new Promise((resolve) => {
+    const command =
+      process.platform === "win32"
+        ? `FOR /F "tokens=5" %P IN ('netstat -ano ^| findstr :${port}') DO TaskKill /PID %P /F`
+        : `lsof -ti:${port} | xargs kill -9 || true`;
+
+    console.log(`Attempting to free port ${port}...`);
+    exec(command, (error) => {
+      if (error) {
+        console.log(`Warning: Could not free port ${port}: ${error.message}`);
+      } else {
+        console.log(`Successfully freed port ${port}`);
+      }
+      // Continue either way after a brief delay
+      setTimeout(resolve, 1000);
+    });
+  });
+}
+
 function send(message, remote, callback, retries = 3, backoff = 500) {
   const serialize = distribution.util.serialize;
   const deserialize = distribution.util.deserialize;
@@ -102,7 +123,7 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
       });
     });
 
-    req.on("error", (e) => {
+    req.on("error", async (e) => {
       if (
         retries > 0 &&
         (e.code === "ECONNRESET" || e.code === "ECONNREFUSED")
@@ -121,6 +142,8 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
         console.log(
           `Node ${remote.node.ip}:${remote.node.port} appears to be down. Attempting to restart it...`
         );
+
+        await killPortProcess(remote.node.port);
 
         // Try to spawn the node
         distribution.local.status.spawn(

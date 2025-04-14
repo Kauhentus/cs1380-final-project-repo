@@ -448,7 +448,7 @@ function crawl_one(callback) {
           const crawlDuration = crawlEndTime - crawlStartTime;
           metrics.crawling.pagesProcessed += 1;
           metrics.crawling.totalCrawlTime += crawlDuration;
-          metrics.processing_times.push(indexing_time);
+          metrics.processing_times.push(crawlDuration);
 
           callback(null, {
             status: "error",
