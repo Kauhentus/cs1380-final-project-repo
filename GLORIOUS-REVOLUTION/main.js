@@ -385,31 +385,31 @@ distribution.node.start(async (server) => {
       const avg_time = avg(t1, t2, t3);
       const avg_num_results = avg(n1, n2, n3);
 
-      await sleep(3000);
+      // await sleep(3000);
 
-      const query_ranged = (query_string) => new Promise((resolve, reject) => {
-        const start_time = new Date();
-        distribution.querier_group.querier.query_range(query_string, { return_tree: false }, async (e, v) => {
-          if(e) return resolve([0, 0]);
-          const elapsed_time = new Date() - start_time;
-          const num_results = v.length;
-          resolve([elapsed_time, num_results]);
-        });
-      });
-      const [t4, n4] = await query_ranged('Anthozoa');
-      await sleep(1000);
-      const [t5, n5] = await query_ranged('Rosids');
-      await sleep(1000);
-      const [t6, n6] = await query_ranged('Angiosperms');
-      await sleep(1000);
-      const avg_time_ranged = avg(t4, t5, t6);
-      const avg_num_results_ranged = avg(n4, n5, n6);
+      // const query_ranged = (query_string) => new Promise((resolve, reject) => {
+      //   const start_time = new Date();
+      //   distribution.querier_group.querier.query_range(query_string, { return_tree: false }, async (e, v) => {
+      //     if(e) return resolve([0, 0]);
+      //     const elapsed_time = new Date() - start_time;
+      //     const num_results = v.length;
+      //     resolve([elapsed_time, num_results]);
+      //   });
+      // });
+      // const [t4, n4] = await query_ranged('Anthozoa');
+      // await sleep(1000);
+      // const [t5, n5] = await query_ranged('Rosids');
+      // await sleep(1000);
+      // const [t6, n6] = await query_ranged('Angiosperms');
+      // await sleep(1000);
+      // const avg_time_ranged = avg(t4, t5, t6);
+      // const avg_num_results_ranged = avg(n4, n5, n6);
 
       log_and_append(`QUERIER_STATS:`);
       log_and_append(`  query_one avg_time = ${avg_time} ms`);
       log_and_append(`  query_one avg_num_results = ${avg_num_results}`);
-      log_and_append(`  query_range avg_time = ${avg_time_ranged} ms`);
-      log_and_append(`  query_range avg_num_results = ${avg_num_results_ranged}`);
+      // log_and_append(`  query_range avg_time = ${avg_time_ranged} ms`);
+      // log_and_append(`  query_range avg_num_results = ${avg_num_results_ranged}`);
       log_and_append('');
 
       resolve();
@@ -431,19 +431,19 @@ distribution.node.start(async (server) => {
       // console.log(`  (PAUSED CORE SERVICES IN ${t2 - t1}ms)`);
       log_and_append(`RECOVERY TIME FOR CORE SERVICES: ${t2 - t1}ms`);
 
-      await sleep(3000);
+      await sleep(1000);
 
       await log_core_stats();
       const t3 = Date.now();
       console.log(`  (LOGGED CORE STATS IN ${t3 - t2}ms)`);
 
-      await sleep(3000);
+      await sleep(1000);
 
       await log_query_stats();
       const t4 = Date.now();
       console.log(`  (LOGGED QUERY STATS IN ${t4 - t3}ms)`);
 
-      await sleep(3000);
+      await sleep(1000);
 
       console.log("RESUMING CORE SERVICES...\n");
       const t5 = Date.now();
