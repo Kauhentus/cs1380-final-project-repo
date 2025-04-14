@@ -3,6 +3,24 @@ const distribution = require("./config.js");
 const fs = require("fs");
 const id = distribution.util.id;
 
+// ANSI color codes (consolidated)
+const RESET = "\x1b[0m";
+const BOLD = "\x1b[1m";
+const DIM = "\x1b[2m";
+const ITALIC = "\x1b[3m";
+const UNDERLINE = "\x1b[4m";
+const RED = "\x1b[31m";
+const GREEN = "\x1b[32m";
+const YELLOW = "\x1b[33m";
+const BLUE = "\x1b[34m";
+const MAGENTA = "\x1b[35m";
+const CYAN = "\x1b[36m";
+const WHITE = "\x1b[37m";
+const BG_MAGENTA = "\x1b[42m";
+const DEFAULT = RESET;
+const COLOR_OF_THE_BOX = GREEN;
+const BOX_WIDTH = 78;
+
 const num_nodes = 4;
 const nodes = [];
 const nids = [];
@@ -18,15 +36,8 @@ const indexer_ranged_group_config = {
 const querier_group = {};
 const querier_group_config = { gid: "querier_group", hash: id.naiveHash };
 let isInRecoveryMode = false;
-let lastOperationTime = 0;
-const OPERATION_COOLDOWN = 2000; // 2 seconds
 
-const log_and_append = (string) => {
-  console.log(string);
-  fs.appendFileSync("log.txt", string + "\n");
-};
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+// const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Setup nodes
 for (let i = 0; i < num_nodes; i++) {
@@ -40,21 +51,39 @@ for (let i = 0; i < num_nodes; i++) {
   querier_group[sid] = nodes[i];
 }
 
-function isEmptyObject(obj) {
-  return obj && typeof obj === "object" && Object.keys(obj).length === 0;
+function stripAnsi(str) {
+  return str.replace(/\x1B\[\d+m/g, "");
+}
+
+function cleanText(text) {
+  if (!text) return "";
+  return text.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function createPrintLine(text) {
+  const visibleText = stripAnsi(text);
+  const textLength = [...visibleText].length;
+
+  // console.log(COLOR);
+
+  const fixedLength = textLength + 7;
+  const totalEquals = 78 - fixedLength;
+  const equalsPerSide = Math.floor(totalEquals / 2);
+
+  const leftEquals = "=".repeat(equalsPerSide);
+
+  const rightEquals = "=".repeat(equalsPerSide + (totalEquals % 2));
+
+  return `\n${BOLD}${MAGENTA}${leftEquals} ${text}  ${rightEquals}${DEFAULT}`;
 }
 
 distribution.node.start(async (server) => {
-  // Utility function to get the target node for a link
   const get_nx = (link) => {
-    // console.log(link);
     return nodes[parseInt(id.getID(link).slice(0, 8), 16) % num_nodes];
   };
 
-  // System metrics trackers
   let startTime = Date.now();
 
-  // Initialize your distributed system
   const spawn_nx = (nx) =>
     new Promise((resolve) => {
       distribution.local.status.spawn(nx, (e, v) => {
@@ -82,13 +111,11 @@ distribution.node.start(async (server) => {
   const startSpinner = (message, indent = 0) => {
     const spinChars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
     let i = 0;
-    // ?? \r puts back the beginning of the line
     process.stdout.write(`\r${" ".repeat(indent)}${message} ${spinChars[0]}`);
     spinnerInterval = setInterval(() => {
       i = (i + 1) % spinChars.length;
       process.stdout.write(`\r${" ".repeat(indent)}${message} ${spinChars[i]}`);
     }, 100);
-    // TODO: should I call stop spinner in here?
   };
 
   const stopSpinner = () => {
@@ -111,7 +138,6 @@ distribution.node.start(async (server) => {
   console.log("\x1b[32m✓\x1b[0m Groups initialized");
 
   startSpinner("Initializing services");
-  // Now we need to initlaize all of the services
   await run_remote("crawler_group", {
     gid: "local",
     service: "crawler",
@@ -137,11 +163,9 @@ distribution.node.start(async (server) => {
   console.log("\x1b[32m✓\x1b[0m Distributed search engine is ready!");
 
   startSpinner("Adding initial seed link");
-  // TODO: idk if u agree here, but i started with all categories so we cover all for the initial seed links
   await Promise.all([
     new Promise((resolve, reject) => {
       const link = "/wiki/Cnidaria";
-      // console.log(`Seeding link: ${link} to node ${get_nx(link).port}`);
       const remote = {
         node: get_nx(link),
         gid: "local",
@@ -162,7 +186,6 @@ distribution.node.start(async (server) => {
     }),
     new Promise((resolve, reject) => {
       const link = "/wiki/Plant";
-      // console.log(`Seeding link: ${link} to node ${get_nx(link).port}`);
       const remote = {
         node: get_nx(link),
         gid: "local",
@@ -182,8 +205,7 @@ distribution.node.start(async (server) => {
       });
     }),
     new Promise((resolve, reject) => {
-      const link = "/Lepidoptera";
-      // console.log(`Seeding link: ${link} to node ${get_nx(link).port}`);
+      const link = "/wiki/Lepidoptera";
       const remote = {
         node: get_nx(link),
         gid: "local",
@@ -208,14 +230,12 @@ distribution.node.start(async (server) => {
     "\x1b[32m✓\x1b[0m Added initial seed links for \x1b[32mPlants\x1b[0m, \x1b[34mSealife\x1b[0m, and \x1b[35mButterflies\x1b[0m!"
   );
 
-  const headerLine = (text) => "=".repeat(text.length + 4);
   const formatTime = (ms) => {
     if (ms < 1000) return `${ms}ms`;
     return `${(ms / 1000).toFixed(2)}s`;
   };
 
   async function addLinkToCrawl(link) {
-    // TODO: or should we write a function to fix the user input
     if (!link.startsWith("/wiki/")) {
       console.log("\x1b[31mError: Link must start with '/wiki/'\x1b[0m");
       return;
@@ -253,133 +273,274 @@ distribution.node.start(async (server) => {
     });
   }
 
-  function logDescriptionTitle(result) {
-    return new Promise((detailResolve) => {
-      distribution.crawler_group.store.get(result.docId, (err, data) => {
-        if (err || !data) {
-          return detailResolve();
+  function formatLine(content, indent = 0) {
+    content = cleanText(content);
+
+    const indentStr = " ".repeat(indent);
+    const fullContent = indentStr + content;
+
+    const visibleLength = stripAnsi(fullContent).length;
+    const padding = Math.max(0, BOX_WIDTH - 4 - visibleLength);
+
+    return `${COLOR_OF_THE_BOX}│ ${DEFAULT}${fullContent}${" ".repeat(
+      padding
+    )}${COLOR_OF_THE_BOX} │${DEFAULT}`;
+  }
+
+  function splitTextToLines(text, maxWidth) {
+    if (!text) return [];
+
+    text = cleanText(text);
+
+    const words = text.split(" ");
+    const lines = [];
+    let currentLine = "";
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      if (stripAnsi(testLine).length <= maxWidth) {
+        currentLine = testLine;
+      } else {
+        lines.push(currentLine);
+        currentLine = word;
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines;
+  }
+
+  function formatResult(
+    result,
+    rank,
+    termCount,
+    showDetails,
+    extraData = null
+  ) {
+    const pageInfo = result.termDetails?.pageInfo || {};
+    const title = cleanText(
+      pageInfo.binomialName || result.docId.replace("/wiki/", "")
+    );
+    const url = `https://www.wikipedia.org${result.docId}`;
+
+    const textToDisplay = [];
+
+    textToDisplay.push(
+      `${COLOR_OF_THE_BOX}┌${"─".repeat(BOX_WIDTH - 2)}┐${DEFAULT}`
+    );
+    textToDisplay.push(
+      formatLine(`${BOLD}${rank}. ${title.toUpperCase()}${DEFAULT}`)
+    );
+    textToDisplay.push(
+      `${COLOR_OF_THE_BOX}├${"─".repeat(BOX_WIDTH - 2)}┤${DEFAULT}`
+    );
+
+    textToDisplay.push(formatLine(`URL: ${UNDERLINE}${url}${DEFAULT}`));
+    textToDisplay.push(
+      formatLine(
+        `Score: ${YELLOW}${result.score.toFixed(4)}${DEFAULT} (matched ${
+          result.matchedTerms
+        }/${termCount} terms)`
+      )
+    );
+
+    if (pageInfo.kingdom) {
+      textToDisplay.push(formatLine(`Kingdom: ${cleanText(pageInfo.kingdom)}`));
+    }
+
+    if (pageInfo.family) {
+      textToDisplay.push(formatLine(`Family: ${cleanText(pageInfo.family)}`));
+    }
+
+    const boostFlag =
+      result.termDetails?.taxonomyLevel || result.termDetails?.isBinomial;
+    if (boostFlag) {
+      textToDisplay.push(
+        `${COLOR_OF_THE_BOX}├${"─".repeat(BOX_WIDTH - 2)}┤${DEFAULT}`
+      );
+      textToDisplay.push(formatLine(`${BOLD}Relevance Boosters:${DEFAULT}`));
+
+      if (result.termDetails?.taxonomyLevel) {
+        textToDisplay.push(
+          formatLine(
+            `${GREEN}✓${DEFAULT} Taxonomy match: ${cleanText(
+              result.termDetails.taxonomyLevel
+            )}`,
+            2
+          )
+        );
+      }
+
+      if (result.termDetails?.isBinomial) {
+        textToDisplay.push(
+          formatLine(`${GREEN}✓${DEFAULT} Term appears in binomial name`, 2)
+        );
+      }
+    }
+
+    if (showDetails && extraData) {
+      if (extraData.description) {
+        textToDisplay.push(
+          `${COLOR_OF_THE_BOX}├${"─".repeat(BOX_WIDTH - 2)}┤${DEFAULT}`
+        );
+        textToDisplay.push(formatLine(`${BOLD}Description:${DEFAULT}`));
+
+        const descLines = splitTextToLines(
+          extraData.description,
+          BOX_WIDTH - 6
+        );
+        const maxLines = 5;
+
+        for (let i = 0; i < Math.min(descLines.length, maxLines); i++) {
+          textToDisplay.push(formatLine(descLines[i]));
         }
 
-        const title = data.title || data.binomial_name || "Unknown Title";
-
-        console.log(headerLine(`DETAILED INFORMATION: ${title}`));
-        console.log(`| DETAILED INFORMATION: ${title} |`);
-        console.log(headerLine(`DETAILED INFORMATION: ${title}`));
-
-        if (data.binomial_name) {
-          console.log(`\nBinomial name: \x1b[1m${data.binomial_name}\x1b[0m`);
+        if (descLines.length > maxLines) {
+          textToDisplay.push(formatLine("..."));
         }
+      }
 
-        if (data.hierarchy && data.hierarchy.length > 0) {
-          console.log("\nTaxonomic Classification:");
-          data.hierarchy.forEach((entry) => {
-            if (Array.isArray(entry) && entry.length === 2) {
-              console.log(`  ${entry[0]}: ${entry[1]}`);
-            }
-          });
+      if (extraData.hierarchy && extraData.hierarchy.length > 0) {
+        textToDisplay.push(
+          `${COLOR_OF_THE_BOX}├${"─".repeat(BOX_WIDTH - 2)}┤${DEFAULT}`
+        );
+        textToDisplay.push(
+          formatLine(`${BOLD}Taxonomic Classification:${DEFAULT}`)
+        );
+
+        for (const entry of extraData.hierarchy) {
+          if (Array.isArray(entry) && entry.length === 2) {
+            const key = cleanText(entry[0]);
+            const value = cleanText(entry[1]);
+            textToDisplay.push(formatLine(`${key}: ${value}`, 2));
+          }
         }
+      }
+    }
 
-        if (data.description) {
-          console.log("\nDescription:");
-          console.log(data.description);
+    textToDisplay.push(
+      `${COLOR_OF_THE_BOX}└${"─".repeat(BOX_WIDTH - 2)}┘${DEFAULT}`
+    );
+
+    return textToDisplay.join("\n");
+  }
+
+  function fetchDocumentData(docId) {
+    return new Promise((resolve, reject) => {
+      distribution.crawler_group.store.get(docId, (err, data) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(data || null);
         }
-
-        detailResolve();
       });
     });
   }
 
-  // Query execution function
+  function parseQuery(queryString) {
+    const parts = queryString.split(" ");
+    const hasDetailFlag = parts.includes("-d");
+
+    const actualQuery = parts.filter((part) => part !== "-d").join(" ");
+
+    return {
+      query: actualQuery,
+      showDetails: hasDetailFlag,
+    };
+  }
+
   async function executeQuery(queryString) {
-    console.log("\nExecuting query...");
+    // console.log(`\n${BOLD}Executing query...${DEFAULT}`);
+    // console.log(MAGENTA);
+
     const startTime = Date.now();
 
+    startSpinner(`${BOLD}Executing query for ${queryString}.${DEFAULT}`);
+
+    const { query, showDetails } = parseQuery(queryString);
+
     return new Promise((resolve) => {
-      console.log(
-        `Sending query "${queryString}" to querier_group at ${new Date().toISOString()}`
-      );
+      // console.log(`Sending query "${query}" at ${new Date().toISOString()}`);
 
-      distribution.querier_group.querier.query_one(
-        queryString,
-        {},
-        async (e, v) => {
-          const queryTime = Date.now() - startTime;
+      distribution.querier_group.querier.query_one(query, {}, async (e, v) => {
+        const queryTime = Date.now() - startTime;
 
-          if (e) {
-            console.error("\x1b[31mQuery failed:\x1b[0m", e);
-            return resolve();
-          }
+        stopSpinner();
 
-          console.log(headerLine("QUERY RESULTS"));
-          console.log(`| ${v.query} |`);
-          console.log(headerLine("QUERY RESULTS"));
-          console.log(`Terms searched: ${v.terms.join(", ")}`);
+        if (e) {
+          console.log(`\n${BOLD}Error:${DEFAULT} Query failed: ${e}`);
+          return resolve();
+        }
+
+        // console.log(`\n${BOLD}${CYAN}SEARCH RESULTS: "${v.query}"${DEFAULT}`);
+        console.log(
+          createPrintLine(`🚕 "${v.query.toUpperCase()}" RESULTS 🚕`),
+          MAGENTA
+        );
+        console.log(`${CYAN}Terms: ${v.terms.join(", ")}${DEFAULT}`);
+        console.log(
+          `${CYAN}Found ${v.totalResults} results in ${formatTime(
+            queryTime
+          )}${DEFAULT}`
+        );
+        if (showDetails) {
+          console.log(`${CYAN}Detailed view enabled (-d flag)${DEFAULT}\n`);
+        } else {
           console.log(
-            `Total results: ${v.totalResults} (query took ${formatTime(
-              queryTime
-            )})\n`
+            `${CYAN}Showing details for top result only (use -d flag for all details)${DEFAULT}\n`
           );
+        }
 
-          if (!v.topResults || v.topResults.length === 0) {
-            console.log("No results found for this query.");
-            return resolve();
+        if (!v.topResults || v.topResults.length === 0) {
+          console.log(
+            `\n${RED}${BOLD}No results found for this query.${DEFAULT}`
+          );
+          return resolve();
+        }
+
+        const maxResults = Math.min(v.topResults.length, 5);
+        const metaDataPromises = [];
+
+        for (let i = 0; i < maxResults; i++) {
+          if (i === 0 || showDetails) {
+            metaDataPromises.push(fetchDocumentData(v.topResults[i].docId));
+          } else {
+            metaDataPromises.push(Promise.resolve(null));
           }
+        }
 
-          console.log(headerLine("TOP RESULTS"));
-          console.log(`| TOP RESULTS |`);
-          console.log(headerLine("TOP RESULTS"));
+        try {
+          const metaData = await Promise.all(metaDataPromises);
 
-          v.topResults.slice(0, 5).forEach((result, index) => {
-            const pageInfo = result.termDetails?.pageInfo || {};
-            const title =
-              pageInfo.binomialName || result.docId.replace("/wiki/", "");
-
-            console.log(`${index + 1}. \x1b[1m${title.toUpperCase()}\x1b[0m`);
-            console.log(`   URL: https://www.wikipedia.org${result.docId}`);
+          for (let i = 0; i < maxResults; i++) {
+            const moorDeets = i === 0 || showDetails;
             console.log(
-              `   Score: ${result.score.toFixed(4)} (matched ${
-                result.matchedTerms
-              }/${v.terms.length} terms)`
+              formatResult(
+                v.topResults[i],
+                i + 1,
+                v.terms.length,
+                moorDeets,
+                metaData[i]
+              )
             );
 
-            if (pageInfo.kingdom)
-              console.log(`   Kingdom: ${pageInfo.kingdom}`);
-            if (pageInfo.family) console.log(`   Family: ${pageInfo.family}`);
-
-            if (result.termDetails?.taxonomyLevel) {
-              console.log(
-                `   \x1b[32m* BOOSTED! Taxonomy match: ${result.termDetails.taxonomyLevel}\x1b[0m`
-              );
-            }
-
-            if (result.termDetails?.isBinomial) {
-              console.log(
-                `   \x1b[32m* BOOSTED! Term appears in binomial name\x1b[0m`
-              );
-            }
-
-            console.log("");
-          });
-
-          // TODO: Put this in a clickable, interactive component using a library
-          // TODO: Decide if I want to keep the logging of both the title and the description since we
-          // TODO: are now printing this for all of the results (want to find a balance between information and simplicity)
-
-          if (v.topResults.length > 0) {
-            const topResult = v.topResults[0];
-            try {
-              await logDescriptionTitle(topResult);
-            } catch (detailError) {
-              console.error(
-                "Error processing detailed information:",
-                detailError
-              );
-            }
+            if (i < maxResults - 1) console.log();
           }
-
-          resolve();
+        } catch (err) {
+          console.error("Error fetching result data:", err);
+          for (let i = 0; i < maxResults; i++) {
+            console.log(
+              formatResult(v.topResults[i], i + 1, v.terms.length, false, null)
+            );
+            if (i < maxResults - 1) console.log();
+          }
         }
-      );
+
+        resolve();
+      });
     });
   }
 
@@ -387,10 +548,9 @@ distribution.node.start(async (server) => {
     console.log(`\nExploring taxonomy tree for: ${taxonomyTerm}`);
     const startTime = Date.now();
 
-    // Default options
     const defaultOptions = {
-      collapseSpecies: false, // Whether to collapse species nodes
-      maxDepth: 10, // Maximum depth to display
+      collapseSpecies: false,
+      maxDepth: 10,
     };
 
     const finalOptions = { ...defaultOptions, ...options };
@@ -410,14 +570,11 @@ distribution.node.start(async (server) => {
             return resolve();
           }
 
-          // Print taxonomy tree statistics
           const queryTime = Date.now() - startTime;
 
-          // Track counts for reporting
           let speciesCount = 0;
           let taxaCount = 0;
 
-          // Recursive printing function
           const printTree = (
             node,
             depth = 0,
@@ -432,7 +589,6 @@ distribution.node.start(async (server) => {
               ? node.children.filter((child) => child.is_species).length
               : 0;
 
-            // Format node name
             let nodeName = isSpecies
               ? node.name.replace("[SPECIES] /wiki/", "")
               : node.name;
@@ -441,16 +597,14 @@ distribution.node.start(async (server) => {
               nodeName += ` (${numSpeciesChildren} species)`;
             }
 
-            // Count nodes by type
             if (isSpecies) {
               speciesCount++;
-              nodeName = "\x1b[32m*" + nodeName + "\x1b[0m"; // Green for species
+              nodeName = "\x1b[32m*" + nodeName + "\x1b[0m";
             } else {
               taxaCount++;
-              nodeName = "\x1b[33m" + nodeName + "\x1b[0m"; // Yellow for taxa
+              nodeName = "\x1b[33m" + nodeName + "\x1b[0m";
             }
 
-            // Print the current node
             if (depth === 0) {
               console.log(" ".repeat(depth * 2) + nodeName);
             } else {
@@ -458,19 +612,15 @@ distribution.node.start(async (server) => {
               console.log(prefix + branch + nodeName);
             }
 
-            // Prepare prefix for children
             const newPrefix = prefix + (isLastChild ? "   " : "│  ");
 
-            // Print children
             if (node.children) {
-              // Sort children: taxa first, then species, both alphabetically
               node.children.sort((a, b) => {
                 if (a.is_species && !b.is_species) return 1;
                 if (!a.is_species && b.is_species) return -1;
                 return a.name.localeCompare(b.name);
               });
 
-              // Print each child
               node.children.forEach((child, i) => {
                 if (finalOptions.collapseSpecies && child.is_species) return;
 
@@ -485,16 +635,13 @@ distribution.node.start(async (server) => {
             }
           };
 
-          // Print the tree
           console.log("\n\x1b[1mTaxonomy Tree:\x1b[0m");
           printTree(results);
 
-          // Print summary
           console.log(
             `\nFound \x1b[33m${taxaCount} taxa\x1b[0m and \x1b[32m${speciesCount} species\x1b[0m in ${queryTime}ms`
           );
 
-          // Warn if hitting max depth
           if (taxaCount + speciesCount >= 100) {
             console.log(
               "\n\x1b[33mNote: Large taxonomy tree detected. You can refine your search with a more specific term.\x1b[0m"
@@ -507,7 +654,6 @@ distribution.node.start(async (server) => {
     });
   }
 
-  // Display help text
   function displayHelp() {
     console.log("\n\x1b[1mAvailable Commands:\x1b[0m");
     console.log(
@@ -532,10 +678,17 @@ distribution.node.start(async (server) => {
       "  \x1b[36mexit\x1b[0m or \x1b[36mquit\x1b[0m             - Exit the REPL"
     );
 
+    console.log("\n\x1b[1mSearch Options:\x1b[0m");
+    console.log(
+      "  - \x1b[36m <query> -d\x1b[0m                  - Display the detailed results with hierarchy"
+    );
     console.log("\n\x1b[1mSearch Tips:\x1b[0m");
     console.log("  - Try combining multiple terms for better results");
     console.log(
       "  - Terms found in taxonomy classification get higher relevance"
+    );
+    console.log(
+      "  - Multi-term queries are ranked on the number of terms matched and their relevance"
     );
 
     console.log("\n\x1b[1mTaxonomy Tree Options:\x1b[0m");
@@ -566,6 +719,17 @@ distribution.node.start(async (server) => {
           distribution.indexer_group.comm.send(
             [],
             { gid: "local", service: "indexer", method: "save_maps_to_disk" },
+            () => resolve()
+          );
+        }),
+        new Promise((resolve) => {
+          distribution.indexer_ranged_group.comm.send(
+            [],
+            {
+              gid: "local",
+              service: "indexer_ranged",
+              method: "save_maps_to_disk",
+            },
             () => resolve()
           );
         }),
@@ -639,15 +803,10 @@ distribution.node.start(async (server) => {
     return new Promise((resolve, reject) => {
       console.log(`\n Fetching stats from all services...`);
       distribution.crawler_group.crawler.get_stats((e, v1) => {
-        // console.log("Crawler stats received");
         distribution.indexer_group.indexer.get_stats((e, v2) => {
-          // console.log("Indexer stats received");
           distribution.indexer_ranged_group.indexer_ranged.get_stats(
             (e3, v3) => {
-              // console.log("Ranged indexer stats received");
-              // console.log("Requesting querier stats from all nodes...");
               distribution.querier_group.querier.get_stats((e4, v4) => {
-                // console.log("Querier stats received:", v4);
                 Object.keys(v1).map((key) => {
                   aggregatedStats.crawling.docsInQueue +=
                     v1[key].links_to_crawl;
@@ -727,9 +886,6 @@ distribution.node.start(async (server) => {
 
                       if (v4[key].metrics) {
                         const m = v4[key].metrics;
-                        // console.log(`Node ${key} detailed metrics:`, m);
-
-                        // Track query times by type for calculating averages
                         if (m.queriesProcessed > 0) {
                           aggregatedStats.querying.avgQueryTime +=
                             m.totalQueryTime / m.queriesProcessed;
@@ -768,7 +924,6 @@ distribution.node.start(async (server) => {
                   console.error("Error retrieving querier stats:", e);
                 }
 
-                // console.log("Final aggregated stats:", aggregatedStats);
                 resolve(aggregatedStats);
               });
             }
@@ -780,20 +935,18 @@ distribution.node.start(async (server) => {
 
   const updatePrompt = () => {
     if (isInRecoveryMode) {
-      rl.setPrompt("\x1b[33msearch(recovery)>\x1b[0m ");
+      rl.setPrompt("\x1b[33m 🚕search>\x1b[0m ");
     } else {
-      rl.setPrompt("\x1b[36msearch>\x1b[0m ");
+      rl.setPrompt("\x1b[36m 🚕search>\x1b[0m ");
     }
     rl.prompt();
   };
 
   const main_metric_loop = () => {
-    // console.log("PAUSING CORE SERVICES...\n");
     isInRecoveryMode = true;
 
-    const t1 = Date.now();
     console.log(
-      "\n\x1b[33mSystem is now in recovery mode. REPL remains available.\x1b[0m"
+      "\n\x1b[2m[System] Background processes are now in recovery mode. REPL functionality remains available.\x1b[0m"
     );
     updatePrompt();
 
@@ -809,13 +962,7 @@ distribution.node.start(async (server) => {
         });
       });
     }).then(() => {
-      const t2 = Date.now();
-      // log_and_append(`RECOVERY TIME FOR CORE SERVICES: ${t2 - t1}ms`);
-
       setTimeout(() => {
-        // console.log("RESUMING CORE SERVICES...\n");
-        // const t5 = Date.now();
-
         new Promise((resolve) => {
           distribution.crawler_group.crawler.set_service_state(
             false,
@@ -834,9 +981,8 @@ distribution.node.start(async (server) => {
             }
           );
         }).then(() => {
-          // console.log(`  (RESUMED CORE SERVICES IN ${t6 - t5}ms)`);
           console.log(
-            "\n\x1b[32mRecovery mode ended. System resumed normal operations.\x1b[0m"
+            "\n\x1b[2m[System] Recovery mode ended. System resumed normal operations.\x1b[0m\n"
           );
           isInRecoveryMode = false;
           updatePrompt();
@@ -850,7 +996,7 @@ distribution.node.start(async (server) => {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: "\x1b[36msearch>\x1b[0m ",
+    prompt: "\x1b[36m🚕search>\x1b[0m ",
   });
 
   console.log(
@@ -868,7 +1014,7 @@ distribution.node.start(async (server) => {
   setInterval(async () => {
     try {
       await Promise.all([
-        new Promise((resolve, reject) => {
+        new Promise((resolve) => {
           const remote = {
             gid: "local",
             service: "crawler",
@@ -878,7 +1024,7 @@ distribution.node.start(async (server) => {
             resolve();
           });
         }),
-        new Promise((resolve, reject) => {
+        new Promise((resolve) => {
           const remote = {
             gid: "local",
             service: "indexer",
@@ -888,7 +1034,7 @@ distribution.node.start(async (server) => {
             resolve();
           });
         }),
-        new Promise((resolve, reject) => {
+        new Promise((resolve) => {
           const remote = {
             gid: "local",
             service: "indexer_ranged",
@@ -900,10 +1046,10 @@ distribution.node.start(async (server) => {
         }),
       ]);
 
-      console.log("\x1b[2m[System] State saved automatically\x1b[0m");
+      console.log(`\n\x1b[2m[System] State saved automatically\x1b[0m`);
     } catch (error) {
       console.error(
-        "\x1b[31m[System] Error during automatic state saving:\x1b[0m",
+        "\n\x1b[31m[System] Error during automatic state saving:\x1b[0m",
         error
       );
     }
@@ -927,7 +1073,7 @@ distribution.node.start(async (server) => {
       command !== "quit"
     ) {
       console.log(
-        "\x1b[33mNote: System is currently in recovery mode. Some operations might be limited.\x1b[0m"
+        "\n\x1b[2m[System] Currently in recovery mode. Crawling and indexing operations are limited.\x1b[0m"
       );
     }
 
@@ -957,7 +1103,7 @@ distribution.node.start(async (server) => {
     } else if (command === "stats") {
       try {
         startSpinner("Collecting system statistics");
-        await new Promise((resolve, reject) => {
+        await new Promise((resolve) => {
           distribution.crawler_group.crawler.set_service_state(true, (e, v) => {
             distribution.indexer_group.indexer.set_service_state(
               true,
@@ -976,7 +1122,6 @@ distribution.node.start(async (server) => {
         const systemStats = await aggregateStats();
         stopSpinner();
 
-        // Helper functions for consistent formatting
         const formatNumber = (num) => {
           return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
         };
@@ -992,24 +1137,6 @@ distribution.node.start(async (server) => {
           return `${filledPart}${emptyPart} ${(percentage * 100).toFixed(0)}%`;
         };
 
-        // Color constants
-        const RESET = "\x1b[0m";
-        const BOLD = "\x1b[1m";
-        const DIM = "\x1b[2m";
-        const ITALIC = "\x1b[3m";
-        const UNDERLINE = "\x1b[4m";
-
-        const RED = "\x1b[31m";
-        const GREEN = "\x1b[32m";
-        const YELLOW = "\x1b[33m";
-        const BLUE = "\x1b[34m";
-        const MAGENTA = "\x1b[35m";
-        const CYAN = "\x1b[36m";
-        const WHITE = "\x1b[37m";
-
-        const BG_MAGENTA = "\x1b[42m";
-
-        // Header styling function
         const header = (text) => {
           console.log(
             `\n${BOLD}${CYAN}┌─ ${text} ${"─".repeat(
@@ -1018,7 +1145,6 @@ distribution.node.start(async (server) => {
           );
         };
 
-        // Begin displaying statistics
         const runtime = formatTime(Date.now() - startTime);
 
         console.log("\n");
@@ -1029,12 +1155,12 @@ distribution.node.start(async (server) => {
           `${DIM}Runtime: ${runtime} | Generated at: ${new Date().toLocaleTimeString()}${RESET}`
         );
 
-        // System summary
         header("SYSTEM SUMMARY");
 
         const crawlOps = systemStats.crawling.pagesProcessed || 0;
         const indexOps = systemStats.indexing.documentsIndexed || 0;
-        const queryOps = systemStats.querying.totalQueries || 0;
+        const queryOps = systemStats.querying.queriesProcessed || 0;
+        const rangeQueryOps = systemStats.querying.rangeQueriesProcessed || 0;
 
         console.log(
           `${CYAN}┌─────────────────────────────────────────────┐${RESET}`
@@ -1055,10 +1181,14 @@ distribution.node.start(async (server) => {
           ).padStart(8)}${RESET}              ${CYAN}│${RESET}`
         );
         console.log(
+          `${CYAN}│${RESET} Range Query Ops:      ${BLUE}${formatNumber(
+            rangeQueryOps
+          ).padStart(8)}${RESET}              ${CYAN}│${RESET}`
+        );
+        console.log(
           `${CYAN}└─────────────────────────────────────────────┘${RESET}`
         );
 
-        // Crawler Statistics
         header("CRAWLER STATISTICS");
 
         const crawlerStats = systemStats.crawling;
@@ -1106,7 +1236,6 @@ distribution.node.start(async (server) => {
           `${YELLOW}└─────────────────────────────────────────────┘${RESET}`
         );
 
-        // Indexer Statistics
         if (systemStats.indexing) {
           header("INDEXER STATISTICS");
 
@@ -1134,7 +1263,7 @@ distribution.node.start(async (server) => {
           console.log(
             `${GREEN}│${RESET} Terms Processed:    ${BOLD}${formatNumber(
               totalTermsProcessed
-            ).padStart(8)}${RESET}                ${GREEN}│${RESET}`
+            ).padStart(8)}${RESET}               ${GREEN}│${RESET}`
           );
           console.log(
             `${GREEN}│${RESET} Average Index Time: ${BOLD}${avgIndexTime
@@ -1162,7 +1291,6 @@ distribution.node.start(async (server) => {
           );
         }
 
-        // Range Indexer Statistics
         if (systemStats.rangeIndex) {
           header("RANGE INDEXER STATISTICS");
 
@@ -1205,14 +1333,13 @@ distribution.node.start(async (server) => {
               totalDocsIndexed,
               totalDocsIndexed + totalLinksQueued,
               20
-            )}   ${BLUE}│${RESET}`
+            )}  ${BLUE}│${RESET}`
           );
           console.log(
             `${BLUE}└─────────────────────────────────────────────┘${RESET}`
           );
         }
 
-        // Querier Statistics - Simplified as requested
         if (systemStats.querying) {
           header("QUERIER STATISTICS");
 
@@ -1240,9 +1367,9 @@ distribution.node.start(async (server) => {
             ).padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
           );
           console.log(
-            `${MAGENTA}│${RESET} Avg Query Time:     ${BOLD}${avgQueryTime.padStart(
-              8
-            )}${RESET}                ${MAGENTA}│${RESET}`
+            `${MAGENTA}│${RESET} Avg Query Time:     ${BOLD}${avgQueryTime
+              .slice(0, 5)
+              .padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
           );
           console.log(
             `${MAGENTA}│${RESET} Avg Taxonomy Time:  ${BOLD}${avgRangeQueryTime.padStart(
@@ -1264,13 +1391,11 @@ distribution.node.start(async (server) => {
           );
         }
 
-        // Footer
         console.log(
           `\n${BG_MAGENTA}${WHITE}${BOLD} END OF STATISTICS REPORT ${RESET}`
         );
 
-        // Resume services
-        await new Promise((resolve, reject) => {
+        await new Promise((resolve) => {
           distribution.crawler_group.crawler.set_service_state(
             false,
             (e, v) => {
@@ -1296,28 +1421,37 @@ distribution.node.start(async (server) => {
         );
       }
     } else if (command === "save") {
-      // Force save state to disk
       startSpinner("Saving system state to disk");
 
       try {
         await Promise.all([
-          new Promise((resolve, reject) => {
+          new Promise((resolve) => {
             const remote = {
               gid: "local",
               service: "crawler",
               method: "save_maps_to_disk",
             };
-            distribution.indexer_group.comm.send([], remote, (e, v) => {
+            distribution.crawler_group.comm.send([], remote, (e, v) => {
               resolve();
             });
           }),
-          new Promise((resolve, reject) => {
+          new Promise((resolve) => {
             const remote = {
               gid: "local",
               service: "indexer",
               method: "save_maps_to_disk",
             };
             distribution.indexer_group.comm.send([], remote, (e, v) => {
+              resolve();
+            });
+          }),
+          new Promise((resolve) => {
+            const remote = {
+              gid: "local",
+              service: "indexer_ranged",
+              method: "save_maps_to_disk",
+            };
+            distribution.indexer_ranged_group.comm.send([], remote, (e, v) => {
               resolve();
             });
           }),
@@ -1330,7 +1464,6 @@ distribution.node.start(async (server) => {
         console.error("\x1b[31mError saving system state:\x1b[0m", error);
       }
     } else if (command === "crawl") {
-      // Add a link to crawl
       if (parts.length < 2) {
         console.log(
           "\x1b[31mError: Missing link. Usage: crawl /wiki/PAGE\x1b[0m"
@@ -1370,7 +1503,6 @@ distribution.node.start(async (server) => {
     updatePrompt();
   }).on("close", () => {
     console.log("Exiting REPL. Goodbye!");
-    // TODO: Should I add a loop here to close the nodes
     process.exit(0);
   });
 });

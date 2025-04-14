@@ -80,10 +80,8 @@ const querier = function (config) {
             ? prefixResults[0].queryTerms.length
             : 1;
 
-        // Track matched terms across all prefixes
         const termMatchesMap = new Map();
 
-        // First pass: collect all unique terms each document matches
         prefixResults.forEach((prefixResult) => {
           if (!prefixResult || !prefixResult.results) return;
 
@@ -94,7 +92,6 @@ const querier = function (config) {
               termMatchesMap.set(docId, new Set());
             }
 
-            // Add all matched terms for this document from this prefix
             prefixResult.queryTerms.forEach((term) => {
               if (doc.matchedTerms > 0) {
                 termMatchesMap.get(docId).add(term);
@@ -103,7 +100,6 @@ const querier = function (config) {
           });
         });
 
-        // Second pass: merge the documents with proper score aggregation
         const mergedDocs = new Map();
 
         prefixResults.forEach((prefixResult) => {
@@ -116,11 +112,9 @@ const querier = function (config) {
             if (mergedDocs.has(docId)) {
               const currDoc = mergedDocs.get(docId);
               currDoc.score += doc.score;
-              // Update with the global matched terms count
               currDoc.matchedTerms = totalMatchedTerms;
               currDoc.matchRatio = totalMatchedTerms / totalTerms;
             } else {
-              // Create new entry with the global matched terms count
               mergedDocs.set(docId, {
                 ...doc,
                 matchedTerms: totalMatchedTerms,
@@ -130,37 +124,53 @@ const querier = function (config) {
           });
         });
 
-        // Apply additional multi-term exponential boost at the global level
+        // !! This is how im solving the spinach issue!!
         for (const [docId, doc] of mergedDocs.entries()) {
           if (doc.matchedTerms > 1) {
-            // Apply exponential boost based on total matched terms
             doc.score *= Math.pow(3.0, doc.matchedTerms - 1);
 
-            // Additional boost for high match ratio
             if (doc.matchRatio >= 0.75) {
-              doc.score *= 2.0; // Strong boost for matching 75%+ of terms
+              doc.score *= 2.0;
             } else if (doc.matchRatio >= 0.5) {
-              doc.score *= 1.5; // Moderate boost for matching 50%+ of terms
+              doc.score *= 1.5;
             }
           }
         }
 
-        const sortedResults = Array.from(mergedDocs.values());
+        const docsByBinomialName = new Map();
 
-        // Sort with strong preference for matched term count
-        sortedResults.sort((a, b) => {
-          // Primary sort by matched terms count
+        for (const [docId, doc] of mergedDocs.entries()) {
+          const binomialName =
+            doc.termDetails?.pageInfo?.binomialName?.toLowerCase() || "";
+          const title = doc.termDetails?.title?.toLowerCase() || "";
+          const key = binomialName || title || docId;
+
+          if (!docsByBinomialName.has(key)) {
+            docsByBinomialName.set(key, []);
+          }
+          docsByBinomialName.get(key).push(doc);
+        }
+
+        const deduplicatedDocs = [];
+        for (const [key, docs] of docsByBinomialName.entries()) {
+          if (docs.length > 1) {
+            docs.sort((a, b) => b.score - a.score);
+            deduplicatedDocs.push(docs[0]);
+          } else {
+            deduplicatedDocs.push(docs[0]);
+          }
+        }
+
+        deduplicatedDocs.sort((a, b) => {
           if (b.matchedTerms !== a.matchedTerms) {
             return b.matchedTerms - a.matchedTerms;
           }
-          // Secondary sort by score for equal matches
           return b.score - a.score;
         });
 
-        return sortedResults;
+        return deduplicatedDocs;
       }
 
-      // if (log_queries) console.log(`Processing query: "${query}"`);
       const { original, normalized, terms, prefixMap } = processQuery(query);
       if (terms.length === 0) {
         return callback(null, {
@@ -169,7 +179,6 @@ const querier = function (config) {
           message: "No valid search terms found after removing common words",
         });
       }
-      // if (log_queries) console.log(`Tokenized terms: ${JSON.stringify(terms)}`);
 
       getTotalDocumentCount(async (err, totalDocCount) => {
         distribution.local.groups.get("indexer_group", async (e, v) => {
@@ -183,7 +192,6 @@ const querier = function (config) {
           const nids = nodes.map((node) => distribution.util.id.getNID(node));
           const queryPromises = [];
 
-          // Explicitly log the query distribution
           // console.log(
           // `Distributing query to ${prefixMap.size} node(s) for ${terms.length} term(s)`
           // );
@@ -215,7 +223,6 @@ const querier = function (config) {
                 },
               ];
 
-              // Log before sending the request
               // console.log(
               //   `Sending query_one request to node ${chosenNode.port} for prefix ${prefix}`
               // );
