@@ -417,6 +417,7 @@ distribution.node.start(async (server) => {
 
     const main_metric_loop = async () => {
       console.log("PAUSING CORE SERVICES...\n");
+      const t1 = Date.now();
       await new Promise((resolve, reject) => {
         distribution.crawler_group.crawler.set_service_state(true, (e, v) => {
           distribution.indexer_group.indexer.set_service_state(true, (e, v) => {
@@ -426,17 +427,25 @@ distribution.node.start(async (server) => {
           });
         });
       });
+      const t2 = Date.now();
+      console.log(`  (PAUSED CORE SERVICES IN ${t2 - t1}ms)`);
+
       await sleep(3000);
 
       await log_core_stats();
+      const t3 = Date.now();
+      console.log(`  (LOGGED CORE STATS IN ${t3 - t2}ms)`);
 
       await sleep(3000);
 
       await log_query_stats();
+      const t4 = Date.now();
+      console.log(`  (LOGGED QUERY STATS IN ${t4 - t3}ms)`);
 
       await sleep(3000);
 
       console.log("RESUMING CORE SERVICES...\n");
+      const t5 = Date.now();
       await new Promise((resolve, reject) => {
         distribution.crawler_group.crawler.set_service_state(false, (e, v) => {
           distribution.indexer_group.indexer.set_service_state(false, (e, v) => {
@@ -446,8 +455,12 @@ distribution.node.start(async (server) => {
           });
         });
       });
+      const t6 = Date.now();
+      console.log(`  (RESUMED CORE SERVICES IN ${t6 - t5}ms)`);
+
+      setTimeout(() => main_metric_loop(), 120000);
     }
-    setInterval(main_metric_loop, 120000);
+    // setInterval(main_metric_loop, 120000);
     setTimeout(() => main_metric_loop(), 3000);
 
     // ############################
