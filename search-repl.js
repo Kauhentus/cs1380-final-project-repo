@@ -47,7 +47,7 @@ function isEmptyObject(obj) {
 distribution.node.start(async (server) => {
   // Utility function to get the target node for a link
   const get_nx = (link) => {
-    console.log(link);
+    // console.log(link);
     return nodes[parseInt(id.getID(link).slice(0, 8), 16) % num_nodes];
   };
 
@@ -647,7 +647,7 @@ distribution.node.start(async (server) => {
               // console.log("Ranged indexer stats received");
               // console.log("Requesting querier stats from all nodes...");
               distribution.querier_group.querier.get_stats((e4, v4) => {
-                console.log("Querier stats received:", v4);
+                // console.log("Querier stats received:", v4);
                 Object.keys(v1).map((key) => {
                   aggregatedStats.crawling.docsInQueue +=
                     v1[key].links_to_crawl;
@@ -907,7 +907,6 @@ distribution.node.start(async (server) => {
     } else if (command === "stats") {
       try {
         startSpinner("Collecting system statistics");
-        // startSpinner("Stopping background processes", 2);
         await new Promise((resolve, reject) => {
           distribution.crawler_group.crawler.set_service_state(true, (e, v) => {
             distribution.indexer_group.indexer.set_service_state(
@@ -924,143 +923,303 @@ distribution.node.start(async (server) => {
           });
         });
 
-        // stopSpinner();
-
         const systemStats = await aggregateStats();
-
-        // console.log(systemStats);
-
         stopSpinner();
 
+        // Helper functions for consistent formatting
+        const formatNumber = (num) => {
+          return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        };
+
+        const createProgressBar = (value, max, length = 20) => {
+          const percentage = Math.min(Math.max(value / max, 0), 1);
+          const filledLength = Math.round(length * percentage);
+          const emptyLength = length - filledLength;
+
+          const filledPart = "█".repeat(filledLength);
+          const emptyPart = "░".repeat(emptyLength);
+
+          return `${filledPart}${emptyPart} ${(percentage * 100).toFixed(0)}%`;
+        };
+
+        // Color constants
+        const RESET = "\x1b[0m";
+        const BOLD = "\x1b[1m";
+        const DIM = "\x1b[2m";
+        const ITALIC = "\x1b[3m";
+        const UNDERLINE = "\x1b[4m";
+
+        const RED = "\x1b[31m";
+        const GREEN = "\x1b[32m";
+        const YELLOW = "\x1b[33m";
+        const BLUE = "\x1b[34m";
+        const MAGENTA = "\x1b[35m";
+        const CYAN = "\x1b[36m";
+        const WHITE = "\x1b[37m";
+
+        const BG_MAGENTA = "\x1b[45m";
+
+        // Header styling function
+        const header = (text) => {
+          console.log(
+            `\n${BOLD}${CYAN}┌─ ${text} ${"─".repeat(
+              40 - text.length
+            )}┐${RESET}`
+          );
+        };
+
+        // Begin displaying statistics
         const runtime = formatTime(Date.now() - startTime);
+
+        console.log("\n");
         console.log(
-          `\n\x1b[1;35m===== System Statistics (Runtime: ${runtime}) =====\x1b[0m`
+          `${BG_MAGENTA}${WHITE}${BOLD} TAXI🚕 DISTRIBUTED SEARCH ENGINE - SYSTEM STATISTICS ${RESET}`
+        );
+        console.log(
+          `${DIM}Runtime: ${runtime} | Generated at: ${new Date().toLocaleTimeString()}${RESET}`
         );
 
-        // Background processing stats
-        console.log(`\nBackground Processing:`);
-        console.log(
-          `  Crawl operations: ${systemStats.crawling.pagesProcessed}`
-        );
-        console.log(
-          `  Index operations: ${systemStats.indexing.documentsIndexed}`
-        );
-        // console.log("");
+        // System summary
+        header("SYSTEM SUMMARY");
 
-        console.log("\nCrawler Statistics:");
+        const crawlOps = systemStats.crawling.pagesProcessed || 0;
+        const indexOps = systemStats.indexing.documentsIndexed || 0;
+        const queryOps = systemStats.querying.totalQueries || 0;
+
+        console.log(
+          `${CYAN}┌─────────────────────────────────────────────┐${RESET}`
+        );
+        console.log(
+          `${CYAN}│${RESET} Crawl Operations:     ${YELLOW}${formatNumber(
+            crawlOps
+          ).padStart(8)}${RESET}              ${CYAN}│${RESET}`
+        );
+        console.log(
+          `${CYAN}│${RESET} Index Operations:     ${GREEN}${formatNumber(
+            indexOps
+          ).padStart(8)}${RESET}              ${CYAN}│${RESET}`
+        );
+        console.log(
+          `${CYAN}│${RESET} Query Operations:     ${MAGENTA}${formatNumber(
+            queryOps
+          ).padStart(8)}${RESET}              ${CYAN}│${RESET}`
+        );
+        console.log(
+          `${CYAN}└─────────────────────────────────────────────┘${RESET}`
+        );
+
+        // Crawler Statistics
+        header("CRAWLER STATISTICS");
+
         const crawlerStats = systemStats.crawling;
         const totalPagesCrawled = crawlerStats.pagesProcessed || 0;
         const totalLinksQueued = crawlerStats.docsInQueue || 0;
-
-        console.log(`  Pages crawled: ${totalPagesCrawled}`);
-        console.log(`  Links in queue: ${totalLinksQueued}`);
-        console.log(
-          `  Average crawl time: ${formatTime(
-            crawlerStats.totalCrawlTime / (totalPagesCrawled || 1)
-          )} ms`
+        const avgCrawlTime = formatTime(
+          crawlerStats.totalCrawlTime / (totalPagesCrawled || 1)
         );
+
+        console.log(
+          `${YELLOW}┌─────────────────────────────────────────────┐${RESET}`
+        );
+        console.log(
+          `${YELLOW}│${RESET} Pages Crawled:      ${BOLD}${formatNumber(
+            totalPagesCrawled
+          ).padStart(8)}${RESET}                ${YELLOW}│${RESET}`
+        );
+        console.log(
+          `${YELLOW}│${RESET} Links in Queue:     ${BOLD}${formatNumber(
+            totalLinksQueued
+          ).padStart(8)}${RESET}                ${YELLOW}│${RESET}`
+        );
+        console.log(
+          `${YELLOW}│${RESET} Average Crawl Time: ${BOLD}${avgCrawlTime
+            .slice(0, 5)
+            .padStart(8)} ms${RESET}             ${YELLOW}│${RESET}`
+        );
+
         if (crawlerStats.throughput > 0) {
           console.log(
-            `  Crawl throughput: ${crawlerStats.throughput.toFixed(
-              2
-            )} pages/second`
+            `${YELLOW}│${RESET} Crawl Throughput:   ${BOLD}${crawlerStats.throughput
+              .toFixed(2)
+              .padStart(8)}${RESET} pages/sec      ${YELLOW}│${RESET}`
           );
         }
-        if (systemStats.indexing) {
-          console.log("\nIndexer Statistics:");
-          let totalDocsIndexed = systemStats.indexing.documentsIndexed || 0;
-          let totalLinksQueued = systemStats.indexing.docsInQueue || 0;
-          let totalTermsProcessed =
-            systemStats.indexing.totalTermsProcessed || 0;
 
-          console.log(`  Documents indexed: ${totalDocsIndexed}`);
-          console.log(`  Links in queue: ${totalLinksQueued}`);
-          console.log(`  Total terms processed: ${totalTermsProcessed}`);
-          console.log(
-            `  Average index time: ${formatTime(
-              systemStats.indexing.totalIndexTime / (totalDocsIndexed || 1)
-            )} ms`
-          );
-          if (systemStats.indexing.throughput > 0) {
-            console.log(
-              `  Index throughput: ${systemStats.indexing.throughput.toFixed(
-                2
-              )} documents/second`
-            );
-          }
-        }
-
-        if (systemStats.rangeIndex) {
-          console.log("\nRange Indexer Statistics:");
-          let totalDocsIndexed = systemStats.rangeIndex.documentsIndexed || 0;
-          let totalLinksQueued = systemStats.rangeIndex.docsInQueue || 0;
-
-          console.log(`  Documents indexed: ${totalDocsIndexed}`);
-          console.log(`  Links in queue: ${totalLinksQueued}`);
-          console.log(
-            `  Average range index time: ${formatTime(
-              systemStats.rangeIndex.totalIndexTime / (totalDocsIndexed || 1)
-            )} ms`
-          );
-          if (systemStats.rangeIndex.throughput > 0) {
-            console.log(
-              `  Range index throughput: ${systemStats.rangeIndex.throughput.toFixed(
-                2
-              )} documents/second`
-            );
-          }
-        }
-        if (systemStats.querying) {
-          console.log("\nQuerier Statistics:");
-          const queryStats = systemStats.querying;
-
-          // Basic query counts
-          console.log(`  Total queries processed: ${queryStats.totalQueries}`);
-          console.log(`  - Term-based queries: ${queryStats.queriesProcessed}`);
-          console.log(
-            `  - Taxonomy queries: ${queryStats.rangeQueriesProcessed}`
-          );
-
-          // Performance metrics
-          if (queryStats.queriesProcessed > 0) {
-            console.log(
-              `  Average query time: ${formatTime(queryStats.avgQueryTime)}`
-            );
-          }
-
-          if (queryStats.rangeQueriesProcessed > 0) {
-            console.log(
-              `  Average taxonomy query time: ${formatTime(
-                queryStats.avgRangeQueryTime
-              )}`
-            );
-          }
-
-          // Results metrics
-          console.log(
-            `  Total results returned: ${queryStats.resultsReturned}`
-          );
-          console.log(
-            `  Average results per query: ${queryStats.avgResultsPerQuery.toFixed(
-              2
-            )}`
-          );
-
-          // Quality metrics
-          console.log(`  Failed queries: ${queryStats.failedQueries}`);
-          console.log(
-            `  Empty result queries: ${queryStats.emptyResultQueries}`
-          );
-
-          // Resource usage
-          console.log(`  Peak memory usage: ${queryStats.peakMemoryUsage}MB`);
-        }
         console.log(
-          "\x1b[1;35m========================================\x1b[0m\n"
+          `${YELLOW}│${RESET} Queue Progress:   ${createProgressBar(
+            totalPagesCrawled,
+            totalPagesCrawled + totalLinksQueued,
+            20
+          )}  ${YELLOW}│${RESET}`
         );
-        console.log("\x1b[1;35m===== End of Statistics =====\x1b[0m\n");
-        stopSpinner();
-        // const t5 = Date.now();
+        console.log(
+          `${YELLOW}└─────────────────────────────────────────────┘${RESET}`
+        );
+
+        // Indexer Statistics
+        if (systemStats.indexing) {
+          header("INDEXER STATISTICS");
+
+          const indexingStats = systemStats.indexing;
+          const totalDocsIndexed = indexingStats.documentsIndexed || 0;
+          const totalLinksQueued = indexingStats.docsInQueue || 0;
+          const totalTermsProcessed = indexingStats.totalTermsProcessed || 0;
+          const avgIndexTime = formatTime(
+            indexingStats.totalIndexTime / (totalDocsIndexed || 1)
+          );
+
+          console.log(
+            `${GREEN}┌─────────────────────────────────────────────┐${RESET}`
+          );
+          console.log(
+            `${GREEN}│${RESET} Documents Indexed:  ${BOLD}${formatNumber(
+              totalDocsIndexed
+            ).padStart(8)}${RESET}                ${GREEN}│${RESET}`
+          );
+          console.log(
+            `${GREEN}│${RESET} Links in Queue:     ${BOLD}${formatNumber(
+              totalLinksQueued
+            ).padStart(8)}${RESET}                ${GREEN}│${RESET}`
+          );
+          console.log(
+            `${GREEN}│${RESET} Terms Processed:    ${BOLD}${formatNumber(
+              totalTermsProcessed
+            ).padStart(8)}${RESET}                ${GREEN}│${RESET}`
+          );
+          console.log(
+            `${GREEN}│${RESET} Average Index Time: ${BOLD}${avgIndexTime
+              .slice(0, 5)
+              .padStart(8)} ms ${RESET}            ${GREEN}│${RESET}`
+          );
+
+          if (indexingStats.throughput > 0) {
+            console.log(
+              `${GREEN}│${RESET} Index Throughput:   ${BOLD}${indexingStats.throughput
+                .toFixed(2)
+                .padStart(8)}${RESET} docs/sec       ${GREEN}│${RESET}`
+            );
+          }
+
+          console.log(
+            `${GREEN}│${RESET} Queue Progress:   ${createProgressBar(
+              totalDocsIndexed,
+              totalDocsIndexed + totalLinksQueued,
+              20
+            )} ${GREEN}│${RESET}`
+          );
+          console.log(
+            `${GREEN}└─────────────────────────────────────────────┘${RESET}`
+          );
+        }
+
+        // Range Indexer Statistics
+        if (systemStats.rangeIndex) {
+          header("RANGE INDEXER STATISTICS");
+
+          const rangeIndexStats = systemStats.rangeIndex;
+          const totalDocsIndexed = rangeIndexStats.documentsIndexed || 0;
+          const totalLinksQueued = rangeIndexStats.docsInQueue || 0;
+          const avgIndexTime = formatTime(
+            rangeIndexStats.totalIndexTime / (totalDocsIndexed || 1)
+          );
+
+          console.log(
+            `${BLUE}┌─────────────────────────────────────────────┐${RESET}`
+          );
+          console.log(
+            `${BLUE}│${RESET} Documents Indexed:  ${BOLD}${formatNumber(
+              totalDocsIndexed
+            ).padStart(8)}${RESET}                ${BLUE}│${RESET}`
+          );
+          console.log(
+            `${BLUE}│${RESET} Links in Queue:     ${BOLD}${formatNumber(
+              totalLinksQueued
+            ).padStart(8)}${RESET}                ${BLUE}│${RESET}`
+          );
+          console.log(
+            `${BLUE}│${RESET} Average Index Time: ${BOLD}${avgIndexTime
+              .slice(0, 5)
+              .padStart(8)} ms ${RESET}            ${BLUE}│${RESET}`
+          );
+
+          if (rangeIndexStats.throughput > 0) {
+            console.log(
+              `${BLUE}│${RESET} Throughput:         ${BOLD}${rangeIndexStats.throughput
+                .toFixed(2)
+                .padStart(8)}${RESET} docs/sec       ${BLUE}│${RESET}`
+            );
+          }
+
+          console.log(
+            `${BLUE}│${RESET} Queue Progress:  ${createProgressBar(
+              totalDocsIndexed,
+              totalDocsIndexed + totalLinksQueued,
+              20
+            )}   ${BLUE}│${RESET}`
+          );
+          console.log(
+            `${BLUE}└─────────────────────────────────────────────┘${RESET}`
+          );
+        }
+
+        // Querier Statistics - Simplified as requested
+        if (systemStats.querying) {
+          header("QUERIER STATISTICS");
+
+          const queryStats = systemStats.querying;
+          const termQueries = queryStats.queriesProcessed || 0;
+          const taxonomyQueries = queryStats.rangeQueriesProcessed || 0;
+          const avgQueryTime = formatTime(queryStats.avgQueryTime || 0);
+          const avgRangeQueryTime = formatTime(
+            queryStats.avgRangeQueryTime || 0
+          );
+          const totalResults = queryStats.resultsReturned || 0;
+          const avgResultsPerQuery = queryStats.avgResultsPerQuery || 0;
+
+          console.log(
+            `${MAGENTA}┌─────────────────────────────────────────────┐${RESET}`
+          );
+          console.log(
+            `${MAGENTA}│${RESET} Term Queries:       ${BOLD}${formatNumber(
+              termQueries
+            ).padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
+          );
+          console.log(
+            `${MAGENTA}│${RESET} Taxonomy Queries:   ${BOLD}${formatNumber(
+              taxonomyQueries
+            ).padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
+          );
+          console.log(
+            `${MAGENTA}│${RESET} Avg Query Time:     ${BOLD}${avgQueryTime.padStart(
+              8
+            )}${RESET}                ${MAGENTA}│${RESET}`
+          );
+          console.log(
+            `${MAGENTA}│${RESET} Avg Taxonomy Time:  ${BOLD}${avgRangeQueryTime.padStart(
+              8
+            )}${RESET}                ${MAGENTA}│${RESET}`
+          );
+          console.log(
+            `${MAGENTA}│${RESET} Total Results:      ${BOLD}${formatNumber(
+              totalResults
+            ).padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
+          );
+          console.log(
+            `${MAGENTA}│${RESET} Avg Results/Query:  ${BOLD}${avgResultsPerQuery
+              .toFixed(2)
+              .padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
+          );
+          console.log(
+            `${MAGENTA}└─────────────────────────────────────────────┘${RESET}`
+          );
+        }
+
+        // Footer
+        console.log(
+          `\n${BG_MAGENTA}${WHITE}${BOLD} END OF STATISTICS REPORT ${RESET}`
+        );
+
+        // Resume services
         await new Promise((resolve, reject) => {
           distribution.crawler_group.crawler.set_service_state(
             false,
@@ -1079,8 +1238,6 @@ distribution.node.start(async (server) => {
             }
           );
         });
-        // const t6 = Date.now();
-        // console.log(`  (RESUMED CORE SERVICES IN ${t6 - t5}ms)`);
       } catch (error) {
         stopSpinner();
         console.error(
