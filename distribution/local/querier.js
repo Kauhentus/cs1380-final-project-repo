@@ -41,48 +41,129 @@ function initialize(callback) {
     `metrics-querier-${global.nodeConfig.port}.json`
   );
 
-  if (fs.existsSync(metrics_file_path)) {
-    const old_metrics = JSON.parse(
-      fs.readFileSync(metrics_file_path).toString()
-    );
-    metrics = old_metrics.at(-1);
-  } else {
-    fs.writeFileSync(metrics_file_path, JSON.stringify([metrics], null, 2));
+  // Initialize with default metrics
+  metrics = {
+    totalQueryTime: 0,
+    queriesProcessed: 0,
+    resultsReturned: 0,
+    failedQueries: 0,
+    emptyResultQueries: 0,
+    totalRangeQueryTime: 0,
+    rangeQueriesProcessed: 0,
+    peakMemoryUsage: 0,
+    avgResponseTime: 0,
+    processing_times: [],
+    current_time: Date.now(),
+    time_since_previous: 0,
+  };
+
+  // Try to load existing metrics
+  try {
+    if (fs.existsSync(metrics_file_path)) {
+      const metricsContent = fs.readFileSync(metrics_file_path, "utf8");
+      if (metricsContent) {
+        const old_metrics = JSON.parse(metricsContent);
+        // Only use the latest metrics if they exist
+        if (Array.isArray(old_metrics) && old_metrics.length > 0) {
+          metrics = old_metrics[old_metrics.length - 1];
+          console.log(
+            `Loaded existing metrics from ${metrics_file_path}:`,
+            metrics
+          );
+        } else {
+          console.log(
+            `Found metrics file but no valid metrics data, using defaults`
+          );
+        }
+      }
+    } else {
+      console.log(
+        `No metrics file found at ${metrics_file_path}, creating new one`
+      );
+      fs.writeFileSync(metrics_file_path, JSON.stringify([metrics], null, 2));
+    }
+  } catch (error) {
+    console.error(`Error loading metrics: ${error.message}`);
+    // Continue with default metrics
   }
 
+  // Immediately record metrics to show we're active
+  fs.appendFileSync(
+    global.logging_path,
+    `QUERIER METRICS INITIALIZED: ${JSON.stringify(metrics)}\n`
+  );
+
+  // Set up interval to save metrics periodically
   metricsInterval = setInterval(async () => {
-    metrics.time_since_previous = Date.now() - metrics.current_time;
-    metrics.current_time = Date.now();
+    try {
+      metrics.time_since_previous = Date.now() - metrics.current_time;
+      metrics.current_time = Date.now();
 
-    const memUsage = process.memoryUsage();
-    metrics.peakMemoryUsage = Math.max(
-      metrics.peakMemoryUsage,
-      Math.round(memUsage.heapUsed / 1024 / 1024)
-    );
+      const memUsage = process.memoryUsage();
+      metrics.peakMemoryUsage = Math.max(
+        metrics.peakMemoryUsage,
+        Math.round(memUsage.heapUsed / 1024 / 1024)
+      );
 
-    if (metrics.processing_times.length > 0) {
-      const sum = metrics.processing_times.reduce((a, b) => a + b, 0);
-      metrics.avgResponseTime = sum / metrics.processing_times.length;
+      if (metrics.processing_times.length > 0) {
+        const sum = metrics.processing_times.reduce((a, b) => a + b, 0);
+        metrics.avgResponseTime = sum / metrics.processing_times.length;
+      }
+
+      // Read existing metrics array
+      let old_metrics = [];
+      try {
+        if (fs.existsSync(metrics_file_path)) {
+          const content = fs.readFileSync(metrics_file_path, "utf8");
+          if (content) {
+            old_metrics = JSON.parse(content);
+            if (!Array.isArray(old_metrics)) {
+              old_metrics = [];
+            }
+          }
+        }
+      } catch (readError) {
+        console.error(`Error reading metrics file: ${readError.message}`);
+        old_metrics = [];
+      }
+
+      // Add current metrics and save
+      old_metrics.push({ ...metrics });
+
+      // Log metrics being saved
+      console.log(
+        `Saving metrics: queriesProcessed=${metrics.queriesProcessed}, totalQueryTime=${metrics.totalQueryTime}ms`
+      );
+
+      await fsp.writeFile(
+        metrics_file_path,
+        JSON.stringify(old_metrics, null, 2)
+      );
+
+      // Reset processing_times for the next interval
+      metrics.processing_times = [];
+    } catch (saveError) {
+      console.error(`Error saving metrics: ${saveError.message}`);
     }
-
-    const old_metrics = JSON.parse(
-      fs.readFileSync(metrics_file_path).toString()
-    );
-    old_metrics.push(metrics);
-    await fsp.writeFile(
-      metrics_file_path,
-      JSON.stringify(old_metrics, null, 2)
-    );
-
-    metrics.processing_times = [];
   }, 60000);
 
-  callback();
+  callback(null, {
+    status: "success",
+    message: "Querier service initialized",
+    metrics: metrics,
+  });
 }
 
 function query_one(queryConfiguration, callback) {
   const fs = require("fs");
   callback = callback || cb;
+
+  // Add debugging to confirm function is called
+  fs.appendFileSync(
+    global.logging_path,
+    `QUERIER RECEIVED QUERY: ${JSON.stringify(queryConfiguration)}\n`
+  );
+
   const { terms, prefix, totalDocCount } = queryConfiguration;
   const query = terms.join(" ");
 
@@ -119,9 +200,18 @@ function query_one(queryConfiguration, callback) {
 
   distribution.local.store.read_bulk(bulkReadConfig, (error, prefixData) => {
     const queryTime = Date.now() - queryStartTime;
+
+    // Ensure metrics updates happen even if there's an error
     metrics.totalQueryTime += queryTime;
     metrics.queriesProcessed += 1;
     metrics.processing_times.push(queryTime);
+
+    // Log metrics update for debugging
+    fs.appendFileSync(
+      global.logging_path,
+      `QUERIER METRICS UPDATED: queriesProcessed=${metrics.queriesProcessed}, totalQueryTime=${metrics.totalQueryTime}ms\n`
+    );
+
     if (error) {
       metrics.failedQueries += 1;
       fs.appendFileSync(
@@ -336,10 +426,12 @@ function query_range(query, depth, visited, options, callback) {
   }
 }
 
+// Fix in the get_stats function
+// Make sure it calculates derived metrics correctly
 function get_stats(callback) {
   callback = callback || cb;
 
-  // Calculate derived metrics
+  // Force calculate derived metrics
   const successfulQueries = metrics.queriesProcessed - metrics.failedQueries;
   const avgResultsPerQuery =
     successfulQueries > 0 ? metrics.resultsReturned / successfulQueries : 0;
@@ -361,7 +453,7 @@ function get_stats(callback) {
     metrics.peakMemoryUsage = currentHeapUsed;
   }
 
-  // Return current stats
+  // Return current stats with forced recalculation
   const stats = {
     queriesProcessed: metrics.queriesProcessed,
     rangeQueriesProcessed: metrics.rangeQueriesProcessed,

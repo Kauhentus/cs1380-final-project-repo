@@ -178,24 +178,27 @@ const querier = function (config) {
             callback(e);
             return;
           }
+
           const nodes = Object.values(v);
           const nids = nodes.map((node) => distribution.util.id.getNID(node));
           const queryPromises = [];
 
+          // Explicitly log the query distribution
+          console.log(
+            `Distributing query to ${prefixMap.size} node(s) for ${terms.length} term(s)`
+          );
+
           for (const [prefix, terms] of prefixMap.entries()) {
-            if (log_queries)
-              console.log(`Processing prefix: ${prefix} with terms: ${terms}`);
+            console.log(`Processing prefix: ${prefix} with terms: ${terms}`);
             const chosenNode = getChosenNode(prefix, nids, nodes);
             if (!chosenNode) {
               console.error(`No chosen node for prefix: ${prefix}`);
               continue;
             }
-            if (log_queries)
-              console.log(
-                `Chosen Node for prefix ${prefix}: ${JSON.stringify(
-                  chosenNode
-                )}`
-              );
+
+            console.log(
+              `Chosen Node for prefix ${prefix}: ${JSON.stringify(chosenNode)}`
+            );
 
             const queryPromise = new Promise((resolve, reject) => {
               const config = {
@@ -203,6 +206,7 @@ const querier = function (config) {
                 method: "query_one",
                 node: chosenNode,
               };
+
               const message = [
                 {
                   terms: terms,
@@ -210,21 +214,35 @@ const querier = function (config) {
                   totalDocCount: totalDocCount,
                 },
               ];
+
+              // Log before sending the request
+              console.log(
+                `Sending query_one request to node ${chosenNode.port} for prefix ${prefix}`
+              );
+
               distribution.local.comm.send(message, config, (err, response) => {
                 if (err) {
-                  if (log_queries)
-                    console.error(`Error querying node for prefix ${prefix}:`);
+                  console.error(
+                    `Error querying node for prefix ${prefix}:`,
+                    err
+                  );
                   resolve(null);
                 } else {
+                  console.log(
+                    `Received response from node ${chosenNode.port} for prefix ${prefix}`
+                  );
                   resolve(response);
                 }
               });
             });
+
             queryPromises.push(queryPromise);
           }
 
           try {
             const nodeResults = await Promise.all(queryPromises);
+            console.log(`All ${queryPromises.length} prefix queries completed`);
+
             const mergedResults = merger(nodeResults);
             const no_trim = options.no_trim || false;
 

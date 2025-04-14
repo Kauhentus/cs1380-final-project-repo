@@ -295,6 +295,10 @@ distribution.node.start(async (server) => {
     const startTime = Date.now();
 
     return new Promise((resolve) => {
+      console.log(
+        `Sending query "${queryString}" to querier_group at ${new Date().toISOString()}`
+      );
+
       distribution.querier_group.querier.query_one(
         queryString,
         {},
@@ -633,11 +637,17 @@ distribution.node.start(async (server) => {
       },
     };
     return new Promise((resolve, reject) => {
+      console.log("Fetching stats from all services...");
       distribution.crawler_group.crawler.get_stats((e, v1) => {
+        console.log("Crawler stats received");
         distribution.indexer_group.indexer.get_stats((e, v2) => {
+          console.log("Indexer stats received");
           distribution.indexer_ranged_group.indexer_ranged.get_stats(
             (e, v3) => {
+              console.log("Ranged indexer stats received");
+              console.log("Requesting querier stats from all nodes...");
               distribution.querier_group.querier.get_stats((e, v4) => {
+                console.log("Querier stats received:", v4);
                 Object.keys(v1).map((key) => {
                   aggregatedStats.crawling.docsInQueue +=
                     v1[key].links_to_crawl;
@@ -693,7 +703,15 @@ distribution.node.start(async (server) => {
                 });
                 // Process querier stats - new section
                 if (v4 && !e) {
+                  console.log(
+                    `Processing querier stats from ${
+                      Object.keys(v4).length
+                    } nodes`
+                  );
+
                   Object.keys(v4).forEach((key) => {
+                    console.log(`Node ${key} stats:`, v4[key]);
+
                     if (v4[key] && v4[key].queriesProcessed !== undefined) {
                       // Aggregate the basic metrics
                       aggregatedStats.querying.queriesProcessed +=
@@ -721,6 +739,8 @@ distribution.node.start(async (server) => {
                       // If detailed metrics are available, use them
                       if (v4[key].metrics) {
                         const m = v4[key].metrics;
+                        console.log(`Node ${key} detailed metrics:`, m);
+
                         // Track query times by type for calculating averages
                         if (m.queriesProcessed > 0) {
                           aggregatedStats.querying.avgQueryTime +=
@@ -732,6 +752,8 @@ distribution.node.start(async (server) => {
                             m.totalRangeQueryTime / m.rangeQueriesProcessed;
                         }
                       }
+                    } else {
+                      console.warn(`Node ${key} has invalid metrics:`, v4[key]);
                     }
                   });
 
@@ -756,8 +778,11 @@ distribution.node.start(async (server) => {
                     aggregatedStats.querying.avgQueryTime /= nodeCount;
                     aggregatedStats.querying.avgRangeQueryTime /= nodeCount;
                   }
+                } else {
+                  console.error("Error retrieving querier stats:", e);
                 }
 
+                console.log("Final aggregated stats:", aggregatedStats);
                 resolve(aggregatedStats);
               });
             }
