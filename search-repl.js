@@ -1,6 +1,7 @@
 const readline = require("readline");
 const distribution = require("./config.js");
 const fs = require("fs");
+const path = require("path");
 const id = distribution.util.id;
 
 // ANSI color codes (consolidated)
@@ -160,7 +161,9 @@ distribution.node.start(async (server) => {
   });
   stopSpinner();
   console.log("\x1b[32m✓\x1b[0m Services initialized");
-  console.log("\x1b[32m✓\x1b[0m Distributed search engine is ready!");
+  console.log(
+    "\x1b[32m✓\x1b[0m Distributed search engine is \x1b[32mready\x1b[0m!"
+  );
 
   startSpinner("Adding initial seed link");
   await Promise.all([
@@ -453,9 +456,6 @@ distribution.node.start(async (server) => {
   }
 
   async function executeQuery(queryString) {
-    // console.log(`\n${BOLD}Executing query...${DEFAULT}`);
-    // console.log(MAGENTA);
-
     const startTime = Date.now();
 
     startSpinner(`${BOLD}Executing query for ${queryString}.${DEFAULT}`);
@@ -475,7 +475,6 @@ distribution.node.start(async (server) => {
           return resolve();
         }
 
-        // console.log(`\n${BOLD}${CYAN}SEARCH RESULTS: "${v.query}"${DEFAULT}`);
         console.log(
           createPrintLine(`🚕 "${v.query.toUpperCase()}" RESULTS 🚕`),
           MAGENTA
@@ -799,7 +798,15 @@ distribution.node.start(async (server) => {
         avgResultsPerQuery: 0,
         peakMemoryUsage: 0,
       },
+      // Add this new section for query growth tracking
+      queryGrowth: {
+        timestamp: 0,
+        tracking: {},
+        previousCounts: {},
+        growthRates: {},
+      },
     };
+
     return new Promise((resolve, reject) => {
       console.log(`\n Fetching stats from all services...`);
       distribution.crawler_group.crawler.get_stats((e, v1) => {
@@ -807,6 +814,7 @@ distribution.node.start(async (server) => {
           distribution.indexer_ranged_group.indexer_ranged.get_stats(
             (e3, v3) => {
               distribution.querier_group.querier.get_stats((e4, v4) => {
+                // Process crawler stats
                 Object.keys(v1).map((key) => {
                   aggregatedStats.crawling.docsInQueue +=
                     v1[key].links_to_crawl;
@@ -824,6 +832,7 @@ distribution.node.start(async (server) => {
                   }
                 });
 
+                // Process indexer stats
                 Object.keys(v2).map((key) => {
                   aggregatedStats.indexing.docsInQueue +=
                     v2[key].links_to_index;
@@ -846,6 +855,7 @@ distribution.node.start(async (server) => {
                   }
                 });
 
+                // Process range indexer stats
                 Object.keys(v3).map((key) => {
                   aggregatedStats.rangeIndex.docsInQueue =
                     v3[key].links_to_range_index;
@@ -860,6 +870,8 @@ distribution.node.start(async (server) => {
                         (nodeMetrics.totalIndexTime / 1000) || 0;
                   }
                 });
+
+                // Process querier stats
                 if (v4) {
                   Object.keys(v4).forEach((key) => {
                     if (v4[key] && v4[key].queriesProcessed !== undefined) {
@@ -881,6 +893,36 @@ distribution.node.start(async (server) => {
                         aggregatedStats.querying.peakMemoryUsage = Math.max(
                           aggregatedStats.querying.peakMemoryUsage,
                           v4[key].performance.peakMemoryUsage
+                        );
+                      }
+
+                      // Collect query growth data if available
+                      if (
+                        v4[key].queryGrowthData &&
+                        v4[key].queryGrowthData.queries
+                      ) {
+                        // Update timestamp to most recent
+                        if (
+                          v4[key].queryGrowthData.timestamp >
+                          aggregatedStats.queryGrowth.timestamp
+                        ) {
+                          aggregatedStats.queryGrowth.timestamp =
+                            v4[key].queryGrowthData.timestamp;
+                        }
+
+                        // Merge query data
+                        Object.entries(v4[key].queryGrowthData.queries).forEach(
+                          ([query, data]) => {
+                            if (
+                              !aggregatedStats.queryGrowth.tracking[query] ||
+                              data.timestamp >
+                                aggregatedStats.queryGrowth.tracking[query]
+                                  .timestamp
+                            ) {
+                              aggregatedStats.queryGrowth.tracking[query] =
+                                data;
+                            }
+                          }
                         );
                       }
 
@@ -924,6 +966,105 @@ distribution.node.start(async (server) => {
                   console.error("Error retrieving querier stats:", e);
                 }
 
+                // Calculate growth rates by comparing with previous saved results
+                try {
+                  // Try to load previous counts from disk (if they exist)
+                  const metricsDir = path.join("crawler-files", "metrics");
+                  const previousDataFile = path.join(
+                    metricsDir,
+                    "previous_query_counts.json"
+                  );
+
+                  if (fs.existsSync(previousDataFile)) {
+                    const previousData = JSON.parse(
+                      fs.readFileSync(previousDataFile)
+                    );
+                    aggregatedStats.queryGrowth.previousCounts =
+                      previousData.counts || {};
+
+                    // Calculate growth rates
+                    Object.entries(
+                      aggregatedStats.queryGrowth.tracking
+                    ).forEach(([query, data]) => {
+                      const currentCount = data.count;
+                      const previousCount = previousData.counts[query] || 0;
+                      const previousTimestamp =
+                        previousData.timestamp || Date.now();
+
+                      if (previousCount > 0) {
+                        // Ensure we never report decreases, only steady or increasing
+                        const actualIncrease = Math.max(
+                          0,
+                          currentCount - previousCount
+                        );
+                        const percentIncrease =
+                          (actualIncrease / previousCount) * 100;
+                        const timeElapsed = Date.now() - previousTimestamp;
+
+                        aggregatedStats.queryGrowth.growthRates[query] = {
+                          previousCount,
+                          currentCount,
+                          percentIncrease: percentIncrease.toFixed(2),
+                          timeElapsed,
+                        };
+                      }
+                    });
+                  }
+
+                  // Save current counts for future comparison if counts are higher
+                  if (!fs.existsSync(metricsDir)) {
+                    fs.mkdirSync(metricsDir, { recursive: true });
+                  }
+
+                  let shouldSave = false;
+                  const countsToSave = {};
+
+                  // Only save if we have previous data to compare against
+                  if (fs.existsSync(previousDataFile)) {
+                    const previousData = JSON.parse(
+                      fs.readFileSync(previousDataFile)
+                    );
+                    const prevCounts = previousData.counts || {};
+
+                    Object.entries(
+                      aggregatedStats.queryGrowth.tracking
+                    ).forEach(([query, data]) => {
+                      const currentCount = data.count;
+                      const previousCount = prevCounts[query] || 0;
+
+                      countsToSave[query] = currentCount;
+
+                      // If any count has increased, we should save
+                      if (currentCount > previousCount) {
+                        shouldSave = true;
+                      }
+                    });
+                  } else {
+                    // If no previous data, always save
+                    shouldSave = true;
+                    Object.entries(
+                      aggregatedStats.queryGrowth.tracking
+                    ).forEach(([query, data]) => {
+                      countsToSave[query] = data.count;
+                    });
+                  }
+
+                  if (shouldSave) {
+                    fs.writeFileSync(
+                      previousDataFile,
+                      JSON.stringify({
+                        timestamp: Date.now(),
+                        counts: countsToSave,
+                      })
+                    );
+                    console.log(
+                      "\n[System] Query growth data saved with updated counts."
+                    );
+                  }
+                } catch (error) {
+                  console.error("Error calculating growth rates:", error);
+                }
+
                 resolve(aggregatedStats);
               });
             }
@@ -935,9 +1076,9 @@ distribution.node.start(async (server) => {
 
   const updatePrompt = () => {
     if (isInRecoveryMode) {
-      rl.setPrompt("\x1b[33m 🚕search>\x1b[0m ");
+      rl.setPrompt("\x1b[33m🚕search>\x1b[0m ");
     } else {
-      rl.setPrompt("\x1b[36m 🚕search>\x1b[0m ");
+      rl.setPrompt("\x1b[36m🚕search>\x1b[0m ");
     }
     rl.prompt();
   };
@@ -982,7 +1123,7 @@ distribution.node.start(async (server) => {
           );
         }).then(() => {
           console.log(
-            "\n\x1b[2m[System] Recovery mode ended. System resumed normal operations.\x1b[0m\n"
+            "\n\x1b[2m[System] Recovery mode ended. System resumed normal operations.\x1b[0m"
           );
           isInRecoveryMode = false;
           updatePrompt();
@@ -992,6 +1133,64 @@ distribution.node.start(async (server) => {
 
     setTimeout(() => main_metric_loop(), 120000);
   };
+
+  function scheduleQueryGrowthChecks() {
+    const TRACKING_QUERIES = [
+      "plantae",
+      "fungi",
+      "cnidaria",
+      "lepidoptera",
+      "species",
+    ];
+    // !! timeout runs once after a time, interval runs an iteration after times
+    setInterval(() => {
+      console.log(
+        "\n\x1b[2m[System] Checking query growth for tracking queries...\x1b[0m"
+      );
+      updatePrompt();
+
+      let queriesCompleted = 0;
+      TRACKING_QUERIES.forEach((query) => {
+        distribution.querier_group.querier.query_one(
+          query,
+          { no_trim: true },
+          (err, result) => {
+            queriesCompleted++;
+            if (queriesCompleted === TRACKING_QUERIES.length) {
+              console.log(
+                "\n\x1b[2m[System] Query growth check completed\x1b[0m"
+              );
+              updatePrompt();
+            }
+          }
+        );
+      });
+    }, 60 * 1000); // Every 5 minutes
+
+    setTimeout(() => {
+      // LOG LOG LOG LOG
+      console.log(
+        "\n\x1b[2m[System] Running initial query growth check...\x1b[0m"
+      );
+      updatePrompt();
+      let queriesCompleted = 0;
+      TRACKING_QUERIES.forEach((query) => {
+        distribution.querier_group.querier.query_one(
+          query,
+          { no_trim: true },
+          (err, result) => {
+            queriesCompleted++;
+            if (queriesCompleted === TRACKING_QUERIES.length) {
+              console.log(
+                "\n\x1b[2m[System] Query growth check completed\x1b[0m"
+              );
+              updatePrompt();
+            }
+          }
+        );
+      });
+    }, 10 * 1000); // 30 sec
+  }
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -1009,7 +1208,8 @@ distribution.node.start(async (server) => {
   distribution.crawler_group.crawler.start_crawl((e, v) => {});
   distribution.indexer_group.indexer.start_index((e, v) => {});
   distribution.indexer_ranged_group.indexer_ranged.start_index((e, v) => {});
-  setTimeout(() => main_metric_loop(), 3000);
+  setTimeout(() => main_metric_loop(), 2 * 60 * 1000); // 2 minutes
+  scheduleQueryGrowthChecks();
 
   setInterval(async () => {
     try {
@@ -1047,6 +1247,7 @@ distribution.node.start(async (server) => {
       ]);
 
       console.log(`\n\x1b[2m[System] State saved automatically\x1b[0m`);
+      updatePrompt();
     } catch (error) {
       console.error(
         "\n\x1b[31m[System] Error during automatic state saving:\x1b[0m",
@@ -1385,6 +1586,64 @@ distribution.node.start(async (server) => {
             `${MAGENTA}│${RESET} Avg Results/Query:  ${BOLD}${avgResultsPerQuery
               .toFixed(2)
               .padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
+          );
+          console.log(
+            `${MAGENTA}└─────────────────────────────────────────────┘${RESET}`
+          );
+        }
+        if (
+          systemStats.queryGrowth &&
+          Object.keys(systemStats.queryGrowth.tracking).length > 0
+        ) {
+          header("QUERY GROWTH STATISTICS");
+
+          console.log(
+            `${MAGENTA}┌─────────────────────────────────────────────────────────┐${RESET}`
+          );
+
+          const lastUpdated = systemStats.queryGrowth.timestamp
+            ? formatTime(Date.now() - systemStats.queryGrowth.timestamp)
+            : "unknown";
+
+          console.log(
+            `${MAGENTA}│${RESET} Last Updated: ${lastUpdated} ago                            ${MAGENTA}│${RESET}`
+          );
+
+          Object.entries(systemStats.queryGrowth.tracking).forEach(
+            ([query, data]) => {
+              const growth = systemStats.queryGrowth.growthRates[query];
+              let displayLine = `${MAGENTA}│${RESET} Query "${query}": ${BOLD}${formatNumber(
+                data.count
+              ).padStart(8)}${RESET} results`;
+
+              // Add growth rate information if available
+              if (growth) {
+                const timeElapsed = formatTime(growth.timeElapsed);
+                displayLine += ` ${GREEN}(↑${growth.percentIncrease}% in ${timeElapsed})${RESET}`;
+              }
+
+              // Pad the line to fit the box width
+              const visibleLength = stripAnsi(displayLine).length;
+              const padding = Math.max(0, 53 - visibleLength);
+              displayLine += `${" ".repeat(padding)} ${MAGENTA}│${RESET}`;
+
+              console.log(displayLine);
+            }
+          );
+
+          console.log(
+            `${MAGENTA}└─────────────────────────────────────────────────────────┘${RESET}`
+          );
+        } else {
+          header("QUERY GROWTH STATISTICS");
+          console.log(
+            `${MAGENTA}┌─────────────────────────────────────────────┐${RESET}`
+          );
+          console.log(
+            `${MAGENTA}│${RESET} No query growth data available yet               ${MAGENTA}│${RESET}`
+          );
+          console.log(
+            `${MAGENTA}│${RESET} Tracking queries will be logged over time        ${MAGENTA}│${RESET}`
           );
           console.log(
             `${MAGENTA}└─────────────────────────────────────────────┘${RESET}`

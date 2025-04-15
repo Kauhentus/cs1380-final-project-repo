@@ -10,17 +10,24 @@ const cb = (e, v) => {
   }
 };
 
-let metrics = {
+metrics = {
   totalQueryTime: 0,
   queriesProcessed: 0,
   resultsReturned: 0,
   failedQueries: 0,
+  emptyResultQueries: 0,
   totalRangeQueryTime: 0,
   rangeQueriesProcessed: 0,
+  peakMemoryUsage: 0,
   avgResponseTime: 0,
   processing_times: [],
   current_time: Date.now(),
   time_since_previous: 0,
+
+  queryGrowthData: {
+    queries: {},
+    timestamp: Date.now(),
+  },
 };
 
 function initialize(callback) {
@@ -278,12 +285,13 @@ function query_one(queryConfiguration, callback) {
         return b.score - a.score;
       });
 
+      const totalResultCount = results.length;
       const topResults = results.slice(0, 100); // TODO: maybe configurable limit
 
       const response = {
         prefix: prefix,
         queryTerms: terms,
-        totalMatches: results.length,
+        totalMatches: totalResultCount,
         termStatistics: termDeets,
         results: topResults,
       };
@@ -412,6 +420,72 @@ function query_range(query, depth, visited, options, callback) {
   }
 }
 
+function log_query_growth(data, callback) {
+  callback = callback || cb;
+
+  try {
+    const { timestamp, query, count } = data;
+
+    const logDir = path.join("crawler-files", "metrics");
+    const logFile = path.join(
+      logDir,
+      `query_growth_${global.nodeConfig.port}.log`
+    );
+
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+
+    if (!metrics.queryGrowthData) {
+      metrics.queryGrowthData = {
+        queries: {},
+        timestamp: Date.now(),
+      };
+    }
+
+    const currentStoredData = metrics.queryGrowthData.queries[query];
+    const currentCount = currentStoredData ? currentStoredData.count : 0;
+
+    if (count > currentCount) {
+      const logLine = `${new Date(timestamp).toISOString()},${query},${count},${
+        global.nodeConfig.port
+      },${currentCount}\n`;
+
+      if (!fs.existsSync(logFile)) {
+        fs.writeFileSync(
+          logFile,
+          "timestamp,query,count,node,previous_count\n"
+        );
+      }
+
+      fs.appendFileSync(logFile, logLine);
+
+      metrics.queryGrowthData.queries[query] = {
+        timestamp,
+        count,
+      };
+      metrics.queryGrowthData.timestamp = timestamp;
+
+      fs.appendFileSync(
+        global.logging_path,
+        `QUERY GROWTH UPDATE: ${query}, count increased from ${currentCount} to ${count}\n`
+      );
+    } else {
+      fs.appendFileSync(
+        global.logging_path,
+        `QUERY GROWTH IGNORED: ${query}, current count ${count} <= previous ${currentCount}\n`
+      );
+    }
+
+    callback(null, true);
+  } catch (error) {
+    console.error("Error in log_query_growth:", error);
+    fs.appendFileSync(
+      global.logging_path,
+      `ERROR IN QUERY GROWTH LOG: ${error}\n`
+    );
+    callback(error);
+  }
+}
+
 function get_stats(callback) {
   callback = callback || cb;
 
@@ -442,9 +516,9 @@ function get_stats(callback) {
     },
 
     metrics: metrics,
-  };
 
-  // console.log("Current Stats:", stats);
+    queryGrowthData: metrics.queryGrowthData,
+  };
 
   callback(null, stats);
 }
@@ -453,5 +527,6 @@ module.exports = {
   initialize,
   query_one,
   query_range,
+  log_query_growth,
   get_stats,
 };

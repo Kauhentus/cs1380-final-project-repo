@@ -4,6 +4,23 @@ const querier = function (config) {
   const context = {};
   context.gid = config.gid || "all";
 
+  const TRACKING_QUERIES = [
+    "plantae",
+    "fungi",
+    "cnidaria",
+    "lepidoptera",
+    "citrus",
+  ];
+
+  function getChosenNode(key, nids, nodes) {
+    const kid = distribution.util.id.getID(key);
+    const chosenNID = distribution.util.id.naiveHash(kid, nids);
+    const chosenNode = nodes.find(
+      (nc) => distribution.util.id.getNID(nc) === chosenNID
+    );
+    return chosenNode;
+  }
+
   return {
     initialize: (config, group, callback) => {
       distribution[context.gid].comm.send(
@@ -25,14 +42,7 @@ const querier = function (config) {
         }
         return basePrefix;
       }
-      function getChosenNode(key, nids, nodes) {
-        const kid = distribution.util.id.getID(key);
-        const chosenNID = distribution.util.id.naiveHash(kid, nids);
-        const chosenNode = nodes.find(
-          (nc) => distribution.util.id.getNID(nc) === chosenNID
-        );
-        return chosenNode;
-      }
+
       function processQuery(query) {
         const queryNorm = query.toLowerCase().trim();
 
@@ -264,6 +274,20 @@ const querier = function (config) {
               },
             };
 
+            if (TRACKING_QUERIES.includes(normalized)) {
+              distribution[context.gid].comm.send(
+                [
+                  {
+                    timestamp: Date.now(),
+                    query: normalized,
+                    count: mergedResults.length,
+                  },
+                ],
+                { service: "querier", method: "log_query_growth" },
+                () => {}
+              );
+            }
+
             callback(null, response);
           } catch (error) {
             console.error("Error processing distributed query:", error);
@@ -276,15 +300,6 @@ const querier = function (config) {
     query_range: (query, options, callback) => {
       query = query.trim().toLowerCase();
       const return_tree = options.return_tree || false;
-
-      function getChosenNode(key, nids, nodes) {
-        const kid = distribution.util.id.getID(key);
-        const chosenNID = distribution.util.id.naiveHash(kid, nids);
-        const chosenNode = nodes.find(
-          (nc) => distribution.util.id.getNID(nc) === chosenNID
-        );
-        return chosenNode;
-      }
 
       distribution.indexer_ranged_group.store.clean_bulk_range_append(
         (e, v) => {
