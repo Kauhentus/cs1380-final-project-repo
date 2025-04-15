@@ -1,5 +1,3 @@
-const log_queries = false;
-
 const querier = function (config) {
   const context = {};
   context.gid = config.gid || "all";
@@ -7,8 +5,9 @@ const querier = function (config) {
   const TRACKING_QUERIES = [
     "plantae",
     "fungi",
-    "cnidaria",
+    "eukaryota",
     "lepidoptera",
+    "animalia",
     "citrus",
   ];
 

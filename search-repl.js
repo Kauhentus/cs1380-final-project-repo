@@ -22,7 +22,7 @@ const DEFAULT = RESET;
 const COLOR_OF_THE_BOX = GREEN;
 const BOX_WIDTH = 78;
 
-const num_nodes = 4;
+const num_nodes = 8;
 const nodes = [];
 const nids = [];
 const crawler_group = {};
@@ -1156,9 +1156,10 @@ distribution.node.start(async (server) => {
     const TRACKING_QUERIES = [
       "plantae",
       "fungi",
-      "cnidaria",
+      "eukaryota",
       "lepidoptera",
-      "species",
+      "animalia",
+      "citrus",
     ];
     // !! timeout runs once after a time, interval runs an iteration after times
     setInterval(() => {
@@ -1404,7 +1405,7 @@ distribution.node.start(async (server) => {
         );
         console.log(
           formatLine(
-            `Range Query Ops:      ${BLUE}${formatNumber(
+            `Range Query Ops:       ${BLUE}${formatNumber(
               rangeQueryOps
             ).padStart(8)}${RESET}`,
             0,
@@ -1694,7 +1695,7 @@ distribution.node.start(async (server) => {
             ? formatTime(Date.now() - systemStats.queryGrowth.timestamp)
             : "unknown";
 
-          console.log(formatLine(`Last Updated: ${lastUpdated} ago`), 0, RED);
+          console.log(formatLine(`Last Updated: ${lastUpdated} ago`, 0, RED));
 
           Object.entries(systemStats.queryGrowth.tracking).forEach(
             ([query, data]) => {
@@ -1714,7 +1715,7 @@ distribution.node.start(async (server) => {
             }
           );
 
-          console.log(boxBottomBorder(MAGENTA));
+          console.log(boxBottomBorder(RED));
         } else {
           console.log(header("QUERY GROWTH STATISTICS"));
           console.log(boxTopBorder(RED));
