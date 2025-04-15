@@ -61,18 +61,50 @@ function cleanText(text) {
   return text.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// Place these functions near your other utility functions like stripAnsi and cleanText
+
+function boxTopBorder(color = CYAN) {
+  return `${color}┌${"─".repeat(BOX_WIDTH - 2)}┐${RESET}`;
+}
+
+function boxMiddleBorder(color = CYAN) {
+  return `${color}├${"─".repeat(BOX_WIDTH - 2)}┤${RESET}`;
+}
+
+function boxBottomBorder(color = CYAN) {
+  return `${color}└${"─".repeat(BOX_WIDTH - 2)}┘${RESET}`;
+}
+
+function header(text) {
+  const headerText = `${text} `;
+  const lineLength = BOX_WIDTH - headerText.length - 4;
+  return `\n${BOLD}${CYAN}┌─ ${text} ${"─".repeat(lineLength)}┐${RESET}`;
+}
+
+function formatLine(content, indent = 0, color = COLOR_OF_THE_BOX) {
+  content = cleanText(content);
+
+  const indentStr = " ".repeat(indent);
+  const fullContent = indentStr + content;
+
+  const visibleLength = stripAnsi(fullContent).length;
+  const padding = Math.max(0, BOX_WIDTH - 4 - visibleLength);
+
+  return `${color}│ ${DEFAULT}${fullContent}${" ".repeat(
+    padding
+  )}${color} │${DEFAULT}`;
+}
+
 function createPrintLine(text) {
   const visibleText = stripAnsi(text);
   const textLength = [...visibleText].length;
 
-  // console.log(COLOR);
-
-  const fixedLength = textLength + 7;
-  const totalEquals = 78 - fixedLength;
+  const totalWidth = BOX_WIDTH - 2;
+  const contentLength = textLength + 4;
+  const totalEquals = totalWidth - contentLength;
   const equalsPerSide = Math.floor(totalEquals / 2);
 
   const leftEquals = "=".repeat(equalsPerSide);
-
   const rightEquals = "=".repeat(equalsPerSide + (totalEquals % 2));
 
   return `\n${BOLD}${MAGENTA}${leftEquals} ${text}  ${rightEquals}${DEFAULT}`;
@@ -274,20 +306,6 @@ distribution.node.start(async (server) => {
         }
       );
     });
-  }
-
-  function formatLine(content, indent = 0) {
-    content = cleanText(content);
-
-    const indentStr = " ".repeat(indent);
-    const fullContent = indentStr + content;
-
-    const visibleLength = stripAnsi(fullContent).length;
-    const padding = Math.max(0, BOX_WIDTH - 4 - visibleLength);
-
-    return `${COLOR_OF_THE_BOX}│ ${DEFAULT}${fullContent}${" ".repeat(
-      padding
-    )}${COLOR_OF_THE_BOX} │${DEFAULT}`;
   }
 
   function splitTextToLines(text, maxWidth) {
@@ -1338,14 +1356,6 @@ distribution.node.start(async (server) => {
           return `${filledPart}${emptyPart} ${(percentage * 100).toFixed(0)}%`;
         };
 
-        const header = (text) => {
-          console.log(
-            `\n${BOLD}${CYAN}┌─ ${text} ${"─".repeat(
-              40 - text.length
-            )}┐${RESET}`
-          );
-        };
-
         const runtime = formatTime(Date.now() - startTime);
 
         console.log("\n");
@@ -1356,7 +1366,9 @@ distribution.node.start(async (server) => {
           `${DIM}Runtime: ${runtime} | Generated at: ${new Date().toLocaleTimeString()}${RESET}`
         );
 
-        header("SYSTEM SUMMARY");
+        // SYSTEM SUMMARY
+        console.log(header("SYSTEM SUMMARY"));
+        console.log(boxTopBorder(CYAN));
 
         const crawlOps = systemStats.crawling.pagesProcessed || 0;
         const indexOps = systemStats.indexing.documentsIndexed || 0;
@@ -1364,33 +1376,47 @@ distribution.node.start(async (server) => {
         const rangeQueryOps = systemStats.querying.rangeQueriesProcessed || 0;
 
         console.log(
-          `${CYAN}┌─────────────────────────────────────────────┐${RESET}`
+          formatLine(
+            `Crawl Operations:     ${YELLOW}${formatNumber(crawlOps).padStart(
+              8
+            )}${RESET}`,
+            0,
+            CYAN
+          )
         );
         console.log(
-          `${CYAN}│${RESET} Crawl Operations:     ${YELLOW}${formatNumber(
-            crawlOps
-          ).padStart(8)}${RESET}              ${CYAN}│${RESET}`
+          formatLine(
+            `Index Operations:     ${GREEN}${formatNumber(indexOps).padStart(
+              8
+            )}${RESET}`,
+            0,
+            CYAN
+          )
         );
         console.log(
-          `${CYAN}│${RESET} Index Operations:     ${GREEN}${formatNumber(
-            indexOps
-          ).padStart(8)}${RESET}              ${CYAN}│${RESET}`
+          formatLine(
+            `Query Operations:     ${MAGENTA}${formatNumber(queryOps).padStart(
+              8
+            )}${RESET}`,
+            0,
+            CYAN
+          )
         );
         console.log(
-          `${CYAN}│${RESET} Query Operations:     ${MAGENTA}${formatNumber(
-            queryOps
-          ).padStart(8)}${RESET}              ${CYAN}│${RESET}`
-        );
-        console.log(
-          `${CYAN}│${RESET} Range Query Ops:      ${BLUE}${formatNumber(
-            rangeQueryOps
-          ).padStart(8)}${RESET}              ${CYAN}│${RESET}`
-        );
-        console.log(
-          `${CYAN}└─────────────────────────────────────────────┘${RESET}`
+          formatLine(
+            `Range Query Ops:      ${BLUE}${formatNumber(
+              rangeQueryOps
+            ).padStart(8)}${RESET}`,
+            0,
+            CYAN
+          )
         );
 
-        header("CRAWLER STATISTICS");
+        console.log(boxBottomBorder(CYAN));
+
+        // CRAWLER STATISTICS
+        console.log(header("CRAWLER STATISTICS"));
+        console.log(boxTopBorder(YELLOW));
 
         const crawlerStats = systemStats.crawling;
         const totalPagesCrawled = crawlerStats.pagesProcessed || 0;
@@ -1400,45 +1426,63 @@ distribution.node.start(async (server) => {
         );
 
         console.log(
-          `${YELLOW}┌─────────────────────────────────────────────┐${RESET}`
+          formatLine(
+            `Pages Crawled:      ${BOLD}${formatNumber(
+              totalPagesCrawled
+            ).padStart(8)}${RESET}`,
+            0,
+            YELLOW
+          )
         );
         console.log(
-          `${YELLOW}│${RESET} Pages Crawled:      ${BOLD}${formatNumber(
-            totalPagesCrawled
-          ).padStart(8)}${RESET}                ${YELLOW}│${RESET}`
+          formatLine(
+            `Links in Queue:     ${BOLD}${formatNumber(
+              totalLinksQueued
+            ).padStart(8)}${RESET}`,
+            0,
+            YELLOW
+          )
         );
         console.log(
-          `${YELLOW}│${RESET} Links in Queue:     ${BOLD}${formatNumber(
-            totalLinksQueued
-          ).padStart(8)}${RESET}                ${YELLOW}│${RESET}`
-        );
-        console.log(
-          `${YELLOW}│${RESET} Average Crawl Time: ${BOLD}${avgCrawlTime
-            .slice(0, 5)
-            .padStart(8)} ms${RESET}             ${YELLOW}│${RESET}`
+          formatLine(
+            `Average Crawl Time: ${BOLD}${avgCrawlTime
+              .slice(0, 5)
+              .padStart(8)} ms${RESET}`,
+            0,
+            YELLOW
+          )
         );
 
         if (crawlerStats.throughput > 0) {
           console.log(
-            `${YELLOW}│${RESET} Crawl Throughput:   ${BOLD}${crawlerStats.throughput
-              .toFixed(2)
-              .padStart(8)}${RESET} pages/sec      ${YELLOW}│${RESET}`
+            formatLine(
+              `Crawl Throughput:   ${BOLD}${crawlerStats.throughput
+                .toFixed(2)
+                .padStart(8)}${RESET} pages/sec`,
+              0,
+              YELLOW
+            )
           );
         }
 
         console.log(
-          `${YELLOW}│${RESET} Queue Progress:   ${createProgressBar(
-            totalPagesCrawled,
-            totalPagesCrawled + totalLinksQueued,
-            20
-          )}  ${YELLOW}│${RESET}`
-        );
-        console.log(
-          `${YELLOW}└─────────────────────────────────────────────┘${RESET}`
+          formatLine(
+            `Queue Progress:   ${createProgressBar(
+              totalPagesCrawled,
+              totalPagesCrawled + totalLinksQueued,
+              20
+            )}`,
+            0,
+            YELLOW
+          )
         );
 
+        console.log(boxBottomBorder(YELLOW));
+
+        // INDEXER STATISTICS
         if (systemStats.indexing) {
-          header("INDEXER STATISTICS");
+          console.log(header("INDEXER STATISTICS"));
+          console.log(boxTopBorder(GREEN));
 
           const indexingStats = systemStats.indexing;
           const totalDocsIndexed = indexingStats.documentsIndexed || 0;
@@ -1449,51 +1493,60 @@ distribution.node.start(async (server) => {
           );
 
           console.log(
-            `${GREEN}┌─────────────────────────────────────────────┐${RESET}`
+            formatLine(
+              `Documents Indexed:  ${BOLD}${formatNumber(
+                totalDocsIndexed
+              ).padStart(8)}${RESET}`
+            )
           );
           console.log(
-            `${GREEN}│${RESET} Documents Indexed:  ${BOLD}${formatNumber(
-              totalDocsIndexed
-            ).padStart(8)}${RESET}                ${GREEN}│${RESET}`
+            formatLine(
+              `Links in Queue:     ${BOLD}${formatNumber(
+                totalLinksQueued
+              ).padStart(8)}${RESET}`
+            )
           );
           console.log(
-            `${GREEN}│${RESET} Links in Queue:     ${BOLD}${formatNumber(
-              totalLinksQueued
-            ).padStart(8)}${RESET}                ${GREEN}│${RESET}`
+            formatLine(
+              `Terms Processed:    ${BOLD}${formatNumber(
+                totalTermsProcessed
+              ).padStart(8)}${RESET}`
+            )
           );
           console.log(
-            `${GREEN}│${RESET} Terms Processed:    ${BOLD}${formatNumber(
-              totalTermsProcessed
-            ).padStart(8)}${RESET}               ${GREEN}│${RESET}`
-          );
-          console.log(
-            `${GREEN}│${RESET} Average Index Time: ${BOLD}${avgIndexTime
-              .slice(0, 5)
-              .padStart(8)} ms ${RESET}            ${GREEN}│${RESET}`
+            formatLine(
+              `Average Index Time: ${BOLD}${avgIndexTime
+                .slice(0, 5)
+                .padStart(8)} ms ${RESET}`
+            )
           );
 
           if (indexingStats.throughput > 0) {
             console.log(
-              `${GREEN}│${RESET} Index Throughput:   ${BOLD}${indexingStats.throughput
-                .toFixed(2)
-                .padStart(8)}${RESET} docs/sec       ${GREEN}│${RESET}`
+              formatLine(
+                `Index Throughput:   ${BOLD}${indexingStats.throughput
+                  .toFixed(2)
+                  .padStart(8)}${RESET} docs/sec`
+              )
             );
           }
 
           console.log(
-            `${GREEN}│${RESET} Queue Progress:   ${createProgressBar(
-              totalDocsIndexed,
-              totalDocsIndexed + totalLinksQueued,
-              20
-            )} ${GREEN}│${RESET}`
+            formatLine(
+              `Queue Progress:   ${createProgressBar(
+                totalDocsIndexed,
+                totalDocsIndexed + totalLinksQueued,
+                20
+              )}`
+            )
           );
-          console.log(
-            `${GREEN}└─────────────────────────────────────────────┘${RESET}`
-          );
+
+          console.log(boxBottomBorder(GREEN));
         }
 
         if (systemStats.rangeIndex) {
-          header("RANGE INDEXER STATISTICS");
+          console.log(header("RANGE INDEXER STATISTICS"));
+          console.log(boxTopBorder(BLUE));
 
           const rangeIndexStats = systemStats.rangeIndex;
           const totalDocsIndexed = rangeIndexStats.documentsIndexed || 0;
@@ -1503,46 +1556,64 @@ distribution.node.start(async (server) => {
           );
 
           console.log(
-            `${BLUE}┌─────────────────────────────────────────────┐${RESET}`
+            formatLine(
+              `Documents Indexed:  ${BOLD}${formatNumber(
+                totalDocsIndexed
+              ).padStart(8)}${RESET}`,
+              0,
+              BLUE
+            )
           );
           console.log(
-            `${BLUE}│${RESET} Documents Indexed:  ${BOLD}${formatNumber(
-              totalDocsIndexed
-            ).padStart(8)}${RESET}                ${BLUE}│${RESET}`
+            formatLine(
+              `Links in Queue:     ${BOLD}${formatNumber(
+                totalLinksQueued
+              ).padStart(8)}${RESET}`,
+              0,
+              BLUE
+            )
           );
           console.log(
-            `${BLUE}│${RESET} Links in Queue:     ${BOLD}${formatNumber(
-              totalLinksQueued
-            ).padStart(8)}${RESET}                ${BLUE}│${RESET}`
-          );
-          console.log(
-            `${BLUE}│${RESET} Average Index Time: ${BOLD}${avgIndexTime
-              .slice(0, 5)
-              .padStart(8)} ms ${RESET}            ${BLUE}│${RESET}`
+            formatLine(
+              `Average Index Time: ${BOLD}${avgIndexTime
+                .slice(0, 5)
+                .padStart(8)} ms ${RESET}`,
+              0,
+              BLUE
+            )
           );
 
           if (rangeIndexStats.throughput > 0) {
             console.log(
-              `${BLUE}│${RESET} Throughput:         ${BOLD}${rangeIndexStats.throughput
-                .toFixed(2)
-                .padStart(8)}${RESET} docs/sec       ${BLUE}│${RESET}`
+              formatLine(
+                `Throughput:         ${BOLD}${rangeIndexStats.throughput
+                  .toFixed(2)
+                  .padStart(8)}${RESET} docs/sec`,
+                0,
+                BLUE
+              )
             );
           }
 
           console.log(
-            `${BLUE}│${RESET} Queue Progress:  ${createProgressBar(
-              totalDocsIndexed,
-              totalDocsIndexed + totalLinksQueued,
-              20
-            )}  ${BLUE}│${RESET}`
+            formatLine(
+              `Queue Progress:  ${createProgressBar(
+                totalDocsIndexed,
+                totalDocsIndexed + totalLinksQueued,
+                20
+              )}`,
+              0,
+              BLUE
+            )
           );
-          console.log(
-            `${BLUE}└─────────────────────────────────────────────┘${RESET}`
-          );
+
+          console.log(boxBottomBorder(BLUE));
         }
 
+        // QUERIER STATISTICS
         if (systemStats.querying) {
-          header("QUERIER STATISTICS");
+          console.log(header("QUERIER STATISTICS"));
+          console.log(boxTopBorder(MAGENTA));
 
           const queryStats = systemStats.querying;
           const termQueries = queryStats.queriesProcessed || 0;
@@ -1555,99 +1626,103 @@ distribution.node.start(async (server) => {
           const avgResultsPerQuery = queryStats.avgResultsPerQuery || 0;
 
           console.log(
-            `${MAGENTA}┌─────────────────────────────────────────────┐${RESET}`
+            formatLine(
+              `Term Queries:       ${BOLD}${formatNumber(termQueries).padStart(
+                8
+              )}${RESET}`,
+              0,
+              MAGENTA
+            )
           );
           console.log(
-            `${MAGENTA}│${RESET} Term Queries:       ${BOLD}${formatNumber(
-              termQueries
-            ).padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
+            formatLine(
+              `Taxonomy Queries:   ${BOLD}${formatNumber(
+                taxonomyQueries
+              ).padStart(8)}${RESET}`,
+              0,
+              MAGENTA
+            )
           );
           console.log(
-            `${MAGENTA}│${RESET} Taxonomy Queries:   ${BOLD}${formatNumber(
-              taxonomyQueries
-            ).padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
+            formatLine(
+              `Avg Query Time:     ${BOLD}${avgQueryTime
+                .slice(0, 5)
+                .padStart(8)}${RESET}`,
+              0,
+              MAGENTA
+            )
           );
           console.log(
-            `${MAGENTA}│${RESET} Avg Query Time:     ${BOLD}${avgQueryTime
-              .slice(0, 5)
-              .padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
+            formatLine(
+              `Avg Taxonomy Time:  ${BOLD}${avgRangeQueryTime.padStart(
+                8
+              )}${RESET}`,
+              0,
+              MAGENTA
+            )
           );
           console.log(
-            `${MAGENTA}│${RESET} Avg Taxonomy Time:  ${BOLD}${avgRangeQueryTime.padStart(
-              8
-            )}${RESET}                ${MAGENTA}│${RESET}`
+            formatLine(
+              `Total Results:      ${BOLD}${formatNumber(totalResults).padStart(
+                8
+              )}${RESET}`,
+              0,
+              MAGENTA
+            )
           );
           console.log(
-            `${MAGENTA}│${RESET} Total Results:      ${BOLD}${formatNumber(
-              totalResults
-            ).padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
+            formatLine(
+              `Avg Results/Query:  ${BOLD}${avgResultsPerQuery
+                .toFixed(2)
+                .padStart(8)}${RESET}`,
+              0,
+              MAGENTA
+            )
           );
-          console.log(
-            `${MAGENTA}│${RESET} Avg Results/Query:  ${BOLD}${avgResultsPerQuery
-              .toFixed(2)
-              .padStart(8)}${RESET}                ${MAGENTA}│${RESET}`
-          );
-          console.log(
-            `${MAGENTA}└─────────────────────────────────────────────┘${RESET}`
-          );
+
+          console.log(boxBottomBorder(MAGENTA));
         }
+
         if (
           systemStats.queryGrowth &&
           Object.keys(systemStats.queryGrowth.tracking).length > 0
         ) {
-          header("QUERY GROWTH STATISTICS");
-
-          console.log(
-            `${MAGENTA}┌─────────────────────────────────────────────────────────┐${RESET}`
-          );
+          console.log(header("QUERY GROWTH STATISTICS"));
+          console.log(boxTopBorder(RED));
 
           const lastUpdated = systemStats.queryGrowth.timestamp
             ? formatTime(Date.now() - systemStats.queryGrowth.timestamp)
             : "unknown";
 
-          console.log(
-            `${MAGENTA}│${RESET} Last Updated: ${lastUpdated} ago                            ${MAGENTA}│${RESET}`
-          );
+          console.log(formatLine(`Last Updated: ${lastUpdated} ago`), 0, RED);
 
           Object.entries(systemStats.queryGrowth.tracking).forEach(
             ([query, data]) => {
               const growth = systemStats.queryGrowth.growthRates[query];
-              let displayLine = `${MAGENTA}│${RESET} Query "${query}": ${BOLD}${formatNumber(
+              let displayText = `Query "${query}": ${BOLD}${formatNumber(
                 data.count
               ).padStart(8)}${RESET} results`;
 
               // Add growth rate information if available
               if (growth) {
-                const timeElapsed = formatTime(growth.timeElapsed);
-                displayLine += ` ${GREEN}(↑${growth.percentIncrease}% in ${timeElapsed})${RESET}`;
+                displayText += ` ${GREEN}(↑${
+                  growth.percentIncrease
+                }% in ${formatTime(growth.timeElapsed)})${RESET}`;
               }
 
-              // Pad the line to fit the box width
-              const visibleLength = stripAnsi(displayLine).length;
-              const padding = Math.max(0, 53 - visibleLength);
-              displayLine += `${" ".repeat(padding)} ${MAGENTA}│${RESET}`;
-
-              console.log(displayLine);
+              console.log(formatLine(displayText, 0, RED));
             }
           );
 
-          console.log(
-            `${MAGENTA}└─────────────────────────────────────────────────────────┘${RESET}`
-          );
+          console.log(boxBottomBorder(MAGENTA));
         } else {
-          header("QUERY GROWTH STATISTICS");
+          console.log(header("QUERY GROWTH STATISTICS"));
+          console.log(boxTopBorder(RED));
+          console.log(formatLine(`No query growth data available yet`, 0, RED));
           console.log(
-            `${MAGENTA}┌─────────────────────────────────────────────┐${RESET}`
+            formatLine(`Tracking queries will be logged over time`, 0, RED)
           );
-          console.log(
-            `${MAGENTA}│${RESET} No query growth data available yet               ${MAGENTA}│${RESET}`
-          );
-          console.log(
-            `${MAGENTA}│${RESET} Tracking queries will be logged over time        ${MAGENTA}│${RESET}`
-          );
-          console.log(
-            `${MAGENTA}└─────────────────────────────────────────────┘${RESET}`
-          );
+          console.log(boxBottomBorder(RED));
         }
 
         console.log(

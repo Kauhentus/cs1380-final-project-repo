@@ -92,8 +92,15 @@ const querier = function (config) {
 
         const termMatchesMap = new Map();
 
+        let totalMatches = 0;
+
+        // TODO: SPLIT THIS INTO TWO PASSES
         prefixResults.forEach((prefixResult) => {
           if (!prefixResult || !prefixResult.results) return;
+
+          // console.log(`Prefix Result: ${prefixResult.totalMatches}`);
+          totalMatches += prefixResult.totalMatches;
+          // console.log(`Total Matches: ${totalMatches}`);
 
           prefixResult.results.forEach((doc) => {
             const docId = doc.docId;
@@ -178,7 +185,7 @@ const querier = function (config) {
           return b.score - a.score;
         });
 
-        return deduplicatedDocs;
+        return { mergedResults: deduplicatedDocs, totalMatches: totalMatches };
       }
 
       const { original, normalized, terms, prefixMap } = processQuery(query);
@@ -260,13 +267,15 @@ const querier = function (config) {
             const nodeResults = await Promise.all(queryPromises);
             // console.log(`All ${queryPromises.length} prefix queries completed`);
 
-            const mergedResults = merger(nodeResults);
+            const { mergedResults, totalMatches } = merger(nodeResults);
+
+            // console.log(original, totalMatches);
             const no_trim = options.no_trim || false;
 
             const response = {
               query: original,
               terms: terms,
-              totalResults: mergedResults.length,
+              totalResults: totalMatches,
               topResults: no_trim ? mergedResults : mergedResults.slice(0, 20),
               prefixMapping: Object.fromEntries(prefixMap),
               timing: {
@@ -280,7 +289,7 @@ const querier = function (config) {
                   {
                     timestamp: Date.now(),
                     query: normalized,
-                    count: mergedResults.length,
+                    count: totalMatches,
                   },
                 ],
                 { service: "querier", method: "log_query_growth" },
