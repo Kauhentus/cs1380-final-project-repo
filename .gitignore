@@ -9,3 +9,8 @@ crawler-files
 
 *.zip
 .DS_Store
+
+visualize-metrics.js
+visualize-query-growth.js
+
+performance_graphs/

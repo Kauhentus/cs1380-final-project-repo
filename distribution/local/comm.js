@@ -20,10 +20,7 @@ const { exec } = require("child_process");
  */
 function killPortProcess(port) {
   return new Promise((resolve) => {
-    const command =
-      process.platform === "win32"
-        ? `FOR /F "tokens=5" %P IN ('netstat -ano ^| findstr :${port}') DO TaskKill /PID %P /F`
-        : `lsof -ti:${port} | xargs kill -9 || true`;
+    const command = `lsof -ti:${port} | xargs kill -9 || true`;
 
     console.log(`Attempting to free port ${port}...`);
     exec(command, (error) => {
@@ -32,11 +29,12 @@ function killPortProcess(port) {
       } else {
         console.log(`Successfully freed port ${port}`);
       }
-      // Continue either way after a brief delay
       setTimeout(resolve, 1000);
     });
   });
 }
+
+const circuitBreakers = {};
 
 function send(message, remote, callback, retries = 3, backoff = 500) {
   const serialize = distribution.util.serialize;
@@ -72,6 +70,17 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
     return;
   }
 
+  const nodeId = `${remote.node.ip}:${remote.node.port}`;
+
+  if (circuitBreakers[nodeId] && circuitBreakers[nodeId].failures > 5) {
+    if (Date.now() - circuitBreakers[nodeId].lastAttempt < 5000) {
+      return callback(new Error(`Circuit open for ${nodeId}`));
+    }
+    // Reset completely after cooldown period
+    circuitBreakers[nodeId].failures = 0; // Reset the counter, not just the timestamp
+    circuitBreakers[nodeId].lastAttempt = Date.now();
+  }
+
   const has_gid = "gid" in remote;
 
   const options = {
@@ -102,6 +111,7 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
       res.on("end", () => {
         try {
           if (res.statusCode !== 200) {
+            // This is still an error case
             callback(
               new Error(
                 `errored in comm with status code ${res.statusCode} and message ${res.statusMessage}`
@@ -109,6 +119,12 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
             );
             return;
           }
+
+          // Success case - reset circuit breaker
+          if (circuitBreakers[nodeId]) {
+            circuitBreakers[nodeId].failures = 0; // Reset failures on success
+          }
+
           const result = deserialize(response_data);
           if (typeof result === "object" && "e" in result && "v" in result) {
             // distributed callback
@@ -124,6 +140,10 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
     });
 
     req.on("error", async (e) => {
+      if (!circuitBreakers[nodeId]) {
+        circuitBreakers[nodeId] = { failures: 0, lastAttempt: Date.now() };
+      }
+      circuitBreakers[nodeId].failures++;
       if (
         retries > 0 &&
         (e.code === "ECONNRESET" || e.code === "ECONNREFUSED")
