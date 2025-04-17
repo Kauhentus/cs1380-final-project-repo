@@ -34,7 +34,7 @@ function killPortProcess(port) {
   });
 }
 
-const circuitBreakers = {};
+const circuits = {};
 
 function send(message, remote, callback, retries = 3, backoff = 500) {
   const serialize = distribution.util.serialize;
@@ -72,13 +72,12 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
 
   const nodeId = `${remote.node.ip}:${remote.node.port}`;
 
-  if (circuitBreakers[nodeId] && circuitBreakers[nodeId].failures > 5) {
-    if (Date.now() - circuitBreakers[nodeId].lastAttempt < 5000) {
+  if (circuits[nodeId] && circuits[nodeId].failures > 5) {
+    if (Date.now() - circuits[nodeId].lastAttempt < 5000) {
       return callback(new Error(`Circuit open for ${nodeId}`));
     }
-    // Reset completely after cooldown period
-    circuitBreakers[nodeId].failures = 0; // Reset the counter, not just the timestamp
-    circuitBreakers[nodeId].lastAttempt = Date.now();
+    circuits[nodeId].failures = 0;
+    circuits[nodeId].lastAttempt = Date.now();
   }
 
   const has_gid = "gid" in remote;
@@ -96,7 +95,6 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
     },
   };
 
-  // use timeout to let first comm request finish before the next comm request
   setTimeout(() => {
     const req = http.request(options, (res) => {
       let response_data = "";
@@ -111,7 +109,6 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
       res.on("end", () => {
         try {
           if (res.statusCode !== 200) {
-            // This is still an error case
             callback(
               new Error(
                 `errored in comm with status code ${res.statusCode} and message ${res.statusMessage}`
@@ -119,18 +116,14 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
             );
             return;
           }
-
-          // Success case - reset circuit breaker
-          if (circuitBreakers[nodeId]) {
-            circuitBreakers[nodeId].failures = 0; // Reset failures on success
+          if (circuits[nodeId]) {
+            circuits[nodeId].failures = 0;
           }
 
           const result = deserialize(response_data);
           if (typeof result === "object" && "e" in result && "v" in result) {
-            // distributed callback
             callback(result.e, result.v);
           } else {
-            // non-distributed callback
             callback(null, result);
           }
         } catch (error) {
@@ -140,10 +133,10 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
     });
 
     req.on("error", async (e) => {
-      if (!circuitBreakers[nodeId]) {
-        circuitBreakers[nodeId] = { failures: 0, lastAttempt: Date.now() };
+      if (!circuits[nodeId]) {
+        circuits[nodeId] = { failures: 0, lastAttempt: Date.now() };
       }
-      circuitBreakers[nodeId].failures++;
+      circuits[nodeId].failures++;
       if (
         retries > 0 &&
         (e.code === "ECONNRESET" || e.code === "ECONNREFUSED")
@@ -165,7 +158,6 @@ function send(message, remote, callback, retries = 3, backoff = 500) {
 
         await killPortProcess(remote.node.port);
 
-        // Try to spawn the node
         distribution.local.status.spawn(
           remote.node,
           (spawnErr, spawnResult) => {

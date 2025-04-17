@@ -257,7 +257,7 @@ function query_one(queryConfiguration, callback) {
         docScores = combineScores(docScores, termScores);
       }
 
-      for (const [docId, data] of Object.entries(docScores)) {
+      for (const [__, data] of Object.entries(docScores)) {
         if (data.matchedTerms > 1) {
           data.score *= Math.pow(2.0, data.matchedTerms - 1);
 

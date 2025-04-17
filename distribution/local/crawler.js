@@ -11,38 +11,30 @@ const errorStats = {
   lastReportTime: Date.now(),
 };
 
-// Rate limiter to control requests to Wikipedia
 class RateLimiter {
-  constructor(maxRequests = 5, timeWindow = 1000) {
+  constructor(maxRequests = 5, window = 1000) {
     this.maxRequests = maxRequests;
-    this.timeWindow = timeWindow;
-    this.requestTimes = [];
+    this.timeWindow = window;
+    this.tiems = [];
   }
 
   async throttle() {
     const now = Date.now();
-    // Remove timestamps outside the time window
-    this.requestTimes = this.requestTimes.filter(
-      (time) => now - time < this.timeWindow
-    );
+    this.tiems = this.tiems.filter((time) => now - time < this.timeWindow);
 
-    if (this.requestTimes.length >= this.maxRequests) {
-      // Wait until the oldest request falls out of the time window
-      const oldestTime = this.requestTimes[0];
-      const waitTime = this.timeWindow - (now - oldestTime) + 10; // Add 10ms buffer
+    if (this.tiems.length >= this.maxRequests) {
+      const oldestTime = this.tiems[0];
+      const waitTime = this.timeWindow - (now - oldestTime) + 10;
       await new Promise((resolve) => setTimeout(resolve, waitTime));
-      return this.throttle(); // Check again after waiting
+      return this.throttle();
     }
 
-    // Add current request timestamp
-    this.requestTimes.push(now);
+    this.tiems.push(now);
   }
 }
 
-// Shared rate limiter instance
-const wikiRateLimiter = new RateLimiter(3, 1000); // 3 requests per second
+const fetchLimited = new RateLimiter(3, 1000); // 3 requests per second
 
-// Fetch with retry and timeout
 async function fetchWithRetry(
   url,
   maxRetries = 3,
@@ -56,25 +48,24 @@ async function fetchWithRetry(
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
     try {
-      await wikiRateLimiter.throttle(); // Rate limit our requests
+      await fetchLimited.throttle();
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
 
-      // Log error stats
       errorStats.total++;
+      // ?? Debug
       if (error.cause && error.cause.code === "ETIMEDOUT") {
         errorStats.timeoutErrors++;
       } else {
         errorStats.networkErrors++;
       }
 
-      // Report error rates periodically
       const now = Date.now();
+      // josh metrics
       if (now - errorStats.lastReportTime > 60000) {
-        // Every minute
         fs.appendFileSync(
           global.logging_path,
           `ERROR RATES: ${errorStats.timeoutErrors} timeouts, ${errorStats.networkErrors} other errors out of ${errorStats.total} total requests\n`
@@ -82,10 +73,8 @@ async function fetchWithRetry(
         errorStats.lastReportTime = now;
       }
 
-      // Last retry, propagate the error
       if (retries === maxRetries - 1) throw error;
 
-      // Exponential backoff
       const delay = initialDelay * Math.pow(2, retries);
       fs.appendFileSync(
         global.logging_path,
@@ -407,7 +396,6 @@ function crawl_one(callback) {
           };
 
           if (is_target_class && binomial_name) {
-            // Process target class
             const page_text = root.text;
             const alphaOnlyPattern = /^[a-z]+$/;
 
@@ -422,7 +410,6 @@ function crawl_one(callback) {
               wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
             }
 
-            // Get metadata with retry
             const stripped_url = url.replace(/\/wiki\//, "");
             const meta_data_endpoint = `https://en.wikipedia.org/api/rest_v1/page/summary/${stripped_url}`;
             let title = binomial_name;
@@ -433,17 +420,14 @@ function crawl_one(callback) {
               const data = await metaResponse.json();
               title = data.title !== "Not found." ? data.title : binomial_name;
               description = data.extract || "";
-              // Make the first letter uppercase
               if (title[0] === title[0].toLowerCase()) {
                 title = title.charAt(0).toUpperCase() + title.slice(1);
               }
             } catch (error) {
-              // Fallback if metadata fetch fails
               fs.appendFileSync(
                 global.logging_path,
                 `Error fetching metadata for ${url}: ${error.message}\n`
               );
-              // Continue with default values set above
             }
 
             description = description.replace(/[\u0000-\u001F]/g, " ");
@@ -523,7 +507,6 @@ function crawl_one(callback) {
               }
             );
           } else {
-            // Not a target class, skip indexing
             result.indexing = {
               status: "skipped",
               reason: "not_target_or_no_binomial",
@@ -540,7 +523,6 @@ function crawl_one(callback) {
             );
           }
         } catch (error) {
-          // Handle any fetch or processing errors
           fs.appendFileSync(
             global.logging_path,
             `ERROR processing ${url}: ${error.message}\n${
@@ -548,7 +530,6 @@ function crawl_one(callback) {
             }\n`
           );
 
-          // Mark as crawled so we don't retry indefinitely
           crawled_links_map.set(url, true);
 
           const crawlEndTime = Date.now();
@@ -557,7 +538,6 @@ function crawl_one(callback) {
           metrics.crawling.totalCrawlTime += crawlDuration;
           metrics.processing_times.push(crawlDuration);
 
-          // Return error status but don't crash
           callback(null, {
             status: "error",
             url: url,

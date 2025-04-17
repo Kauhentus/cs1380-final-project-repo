@@ -141,7 +141,7 @@ const querier = function (config) {
         });
 
         // !! This is how im solving the spinach issue!!
-        for (const [docId, doc] of mergedDocs.entries()) {
+        for (const [___, doc] of mergedDocs.entries()) {
           if (doc.matchedTerms > 1) {
             doc.score *= Math.pow(3.0, doc.matchedTerms - 1);
 
@@ -315,7 +315,6 @@ const querier = function (config) {
             "indexer_ranged_group",
             async (e, v) => {
               const nodes = Object.values(v);
-              const num_nodes = nodes.length;
               const nids = nodes.map((node) =>
                 distribution.util.id.getNID(node)
               );
